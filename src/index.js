@@ -37,13 +37,13 @@ const updateParticles = regl({
     vert: fs.readFileSync(require.resolve('./shaders/update.vert.glsl'), 'utf8'),
 
     attributes: {
-        position: [0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]
+        a_position: [0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]
     },
     uniforms: {
-        wind: windFramebuffer,
-        wind_tex_size: windTexture.size,
-        wind_tex_scale: [windTexture.width, windTexture.height],
-        particles: (ctx) => particleFramebuffers[ctx.tick % 2]
+        u_wind: windFramebuffer,
+        u_wind_tex_size: windTexture.size,
+        u_wind_tex_scale: [windTexture.width, windTexture.height],
+        u_particles: (ctx) => particleFramebuffers[ctx.tick % 2]
     },
     depth: {enable: false},
     count: 6,
@@ -55,11 +55,11 @@ const drawParticles = regl({
     vert: fs.readFileSync(require.resolve('./shaders/draw.vert.glsl'), 'utf8'),
 
     attributes: {
-        index: new Array(numParticles).fill(0).map((_, i) => i)
+        a_index: new Array(numParticles).fill(0).map((_, i) => i)
     },
     uniforms: {
-        particles: (ctx) => particleFramebuffers[ctx.tick % 2],
-        particles_tex_size: particleTextureSize
+        u_particles: (ctx) => particleFramebuffers[ctx.tick % 2],
+        u_particles_tex_size: particleTextureSize
     },
     depth: {enable: false},
     primitive: 'points',
