@@ -1,4 +1,4 @@
-var WIND_GFS = {
+{
     "centerName": "US National Weather Service - NCEP(WMC)",
     "refTime": "2014-11-30T06:00:00.000Z",
     "nx": 360,
