@@ -12,7 +12,7 @@ var drawFrag = fs.readFileSync(require.resolve('./shaders/draw.frag.glsl'), 'utf
 
 module.exports = init;
 
-var particleTextureSize = 256;
+var particleTextureSize = 512;
 var numParticles = particleTextureSize * particleTextureSize;
 
 function init(gl) {
