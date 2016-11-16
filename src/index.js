@@ -1,75 +1,90 @@
 'use strict';
 
-const fs = require('fs');
-const windTexture = require('./wind_texture');
+var util = require('./util');
+var windData = require('./wind_texture');
+var fs = require('fs');
 
-const regl = createREGL({
-    attributes: {preserveDrawingBuffer: true}
-});
+var updateVert = fs.readFileSync(require.resolve('./shaders/update.vert.glsl'), 'utf8');
+var updateFrag = fs.readFileSync(require.resolve('./shaders/update.frag.glsl'), 'utf8');
 
-const windFramebuffer = regl.framebuffer({
-    color: regl.texture({
-        radius: windTexture.size,
-        data: windTexture.data,
-        mag: 'linear'
-    }),
-    depthStencil: false
-});
+var drawVert = fs.readFileSync(require.resolve('./shaders/draw.vert.glsl'), 'utf8');
+var drawFrag = fs.readFileSync(require.resolve('./shaders/draw.frag.glsl'), 'utf8');
 
-const particleTextureSize = 256;
-const numParticles = particleTextureSize * particleTextureSize;
-const particleData = new Uint8Array(numParticles * 4);
+module.exports = init;
 
-for (let i = 0; i < particleData.length; i++) {
-    particleData[i] = Math.floor(Math.random() * 256);
+var particleTextureSize = 256;
+var numParticles = particleTextureSize * particleTextureSize;
+
+function init(gl) {
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.STENCIL_TEST);
+
+    var windTexture = util.createTexture(gl, windData.size, gl.LINEAR, windData.data);
+
+    var particleData = new Uint8Array(numParticles * 4);
+    for (var i = 0; i < particleData.length; i++) {
+        particleData[i] = Math.floor(Math.random() * 256);
+    }
+    var particleTexture0 = util.createTexture(gl, particleTextureSize, gl.NEAREST, particleData);
+    var particleTexture1 = util.createTexture(gl, particleTextureSize, gl.NEAREST, particleData);
+
+    var quadBuffer = util.createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
+    var updateProgram = util.createProgram(gl, updateVert, updateFrag);
+    var framebuffer = gl.createFramebuffer();
+
+    var particleIndices = new Float32Array(numParticles);
+    for (var i = 0; i < numParticles; i++) particleIndices[i] = i;
+    var particleIndexBuffer = util.createBuffer(gl, particleIndices);
+    var drawProgram = util.createProgram(gl, drawVert, drawFrag);
+
+    function drawParticles() {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, particleTexture0);
+
+        gl.useProgram(drawProgram.program);
+
+        util.bindAttribute(gl, particleIndexBuffer, drawProgram.a_index, 1);
+
+        gl.uniform1f(drawProgram.u_particles_tex_size, particleTextureSize);
+
+        gl.drawArrays(gl.POINTS, 0, numParticles);
+    }
+
+    function updateParticles() {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, particleTexture1, 0);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, particleTexture0);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, windTexture);
+
+        gl.viewport(0, 0, particleTextureSize, particleTextureSize);
+
+        gl.useProgram(updateProgram.program);
+
+        util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
+
+        gl.uniform1f(updateProgram.u_wind_tex_size, windData.size);
+        gl.uniform2f(updateProgram.u_wind_tex_scale, windData.width, windData.height);
+
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+        var tempTexture = particleTexture0;
+        particleTexture0 = particleTexture1;
+        particleTexture1 = tempTexture;
+    }
+
+    return function draw() {
+        drawParticles();
+        updateParticles();
+    }
 }
-
-const particleFramebuffers = Array(2).fill().map(() => regl.framebuffer({
-    color: regl.texture({
-        radius: particleTextureSize,
-        data: particleData
-    }),
-    depthStencil: false
-}));
-
-const updateParticles = regl({
-    frag: fs.readFileSync(require.resolve('./shaders/update.frag.glsl'), 'utf8'),
-    vert: fs.readFileSync(require.resolve('./shaders/update.vert.glsl'), 'utf8'),
-
-    attributes: {
-        a_position: [0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]
-    },
-    uniforms: {
-        u_wind: windFramebuffer,
-        u_wind_tex_size: windTexture.size,
-        u_wind_tex_scale: [windTexture.width, windTexture.height],
-        u_particles: (ctx) => particleFramebuffers[ctx.tick % 2]
-    },
-    depth: {enable: false},
-    count: 6,
-    framebuffer: (ctx) => particleFramebuffers[(ctx.tick + 1) % 2]
-});
-
-const drawParticles = regl({
-    frag: fs.readFileSync(require.resolve('./shaders/draw.frag.glsl'), 'utf8'),
-    vert: fs.readFileSync(require.resolve('./shaders/draw.vert.glsl'), 'utf8'),
-
-    attributes: {
-        a_index: new Array(numParticles).fill(0).map((_, i) => i)
-    },
-    uniforms: {
-        u_particles: (ctx) => particleFramebuffers[ctx.tick % 2],
-        u_particles_tex_size: particleTextureSize
-    },
-    depth: {enable: false},
-    primitive: 'points',
-    count: numParticles
-});
-
-regl.clear({color: [0, 0, 0, 1]});
-
-var tick = regl.frame(() => {
-    // regl.clear({color: [0, 0, 0, 1]});
-    drawParticles();
-    updateParticles();
-});
