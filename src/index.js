@@ -61,15 +61,17 @@ function init(gl) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, particleTexture1, 0);
 
+        gl.useProgram(updateProgram.program);
+
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, particleTexture0);
+        gl.uniform1i(updateProgram.u_particles, 0);
 
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, windTexture);
+        gl.uniform1i(updateProgram.u_wind, 1);
 
         gl.viewport(0, 0, particleTextureSize, particleTextureSize);
-
-        gl.useProgram(updateProgram.program);
 
         util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
 
