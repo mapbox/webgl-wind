@@ -1,4 +1,6 @@
-const regl = createREGL();
+const regl = createREGL({
+    attributes: {preserveDrawingBuffer: true}
+});
 
 const windGridWidth = WIND_GFS.lo2 - WIND_GFS.lo1 + 1;
 const windGridHeight = WIND_GFS.la1 - WIND_GFS.la2 + 1;
@@ -29,7 +31,7 @@ const windFramebuffer = regl.framebuffer({
     depthStencil: false
 });
 
-const particleTextureSize = 256;
+const particleTextureSize = 128;
 const numParticles = particleTextureSize * particleTextureSize;
 const particleData = new Uint8Array(numParticles * 4);
 
@@ -47,7 +49,7 @@ const particleFramebuffers = Array(2).fill().map(() => regl.framebuffer({
 
 const updateParticles = regl({
     frag: `
-    precision highp float;
+    precision mediump float;
 
     uniform sampler2D wind;
     uniform sampler2D particles;
@@ -73,7 +75,7 @@ const updateParticles = regl({
         vec2 tr = texture2D(wind, vc + vec2(px, 0)).rg;
         vec2 bl = texture2D(wind, vc + vec2(0, px)).rg;
         vec2 br = texture2D(wind, vc + vec2(px, px)).rg;
-        // return texture2D(wind, uv); // hardware filtering
+        // return texture2D(wind, uv * wind_tex_scale / wind_tex_size).rg; // hardware filtering
         return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
     }
     void main() {
@@ -81,12 +83,15 @@ const updateParticles = regl({
         vec2 particle_pos = vec2(decode(particle_sample.rg), decode(particle_sample.ba));
 
         vec2 speed = (lookup_wind(particle_pos) * 67.0) - 30.0;
-        particle_pos += speed * 0.001;
+        particle_pos = mod(1.0 + particle_pos + speed * 0.00002, 1.0);
 
         gl_FragColor = vec4(encode(particle_pos.x), encode(particle_pos.y));
     }
     `,
+
     vert: `
+    precision mediump float;
+
     attribute vec2 position;
     varying vec2 pos;
 
@@ -95,6 +100,7 @@ const updateParticles = regl({
         gl_Position = vec4(1.0 - 2.0 * position, 0, 1);
     }
     `,
+
     attributes: {
         position: [0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]
     },
@@ -116,8 +122,9 @@ const drawParticles = regl({
     void main() {
         gl_FragColor = vec4(1, 1, 1, 1);
     }`,
+
     vert: `
-    precision highp float;
+    precision mediump float;
 
     attribute float index;
     uniform sampler2D particles;
@@ -133,9 +140,10 @@ const drawParticles = regl({
         vec4 particle_sample = texture2D(particles, vec2(x, y) / particles_tex_size);
         vec2 pos = vec2(decode(particle_sample.rg), decode(particle_sample.ba));
 
-        gl_PointSize = 3.0;
+        gl_PointSize = 1.0;
         gl_Position = vec4(1.0 - 2.0 * pos, 0, 1);
     }`,
+
     attributes: {
         index: new Array(numParticles).fill(0).map((_, i) => i)
     },
@@ -148,8 +156,10 @@ const drawParticles = regl({
     count: numParticles
 });
 
-regl.frame(() => {
-    regl.clear({color: [0, 0, 0, 1]});
+regl.clear({color: [0, 0, 0, 1]});
+
+var tick = regl.frame(() => {
+    // regl.clear({color: [0, 0, 0, 1]});
     drawParticles();
     updateParticles();
 });
