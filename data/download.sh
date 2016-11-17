@@ -1,7 +1,7 @@
 #!/bin/bash
 
 GFS_DATE="20161117"
-RES="1p00"
+RES="1p00" # use "0p25" for hires
 BBOX="leftlon=0&rightlon=360&toplat=90&bottomlat=-90"
 LEVEL="lev_10_m_above_ground=on"
 GFS_URL="http://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_${RES}.pl?file=gfs.t00z.pgrb2.${RES}.f000&${LEVEL}&${BBOX}&dir=%2Fgfs.${GFS_DATE}00"
