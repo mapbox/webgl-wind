@@ -1,7 +1,6 @@
 'use strict';
 
 var util = require('./util');
-var windData = require('./wind_texture');
 var fs = require('fs');
 
 var updateVert = fs.readFileSync(require.resolve('./shaders/update.vert.glsl'), 'utf8');
@@ -15,18 +14,18 @@ module.exports = init;
 var particleTextureSize = 512;
 var numParticles = particleTextureSize * particleTextureSize;
 
-function init(gl) {
+function init(gl, windData, windImage) {
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.STENCIL_TEST);
 
-    var windTexture = util.createTexture(gl, windData.size, gl.LINEAR, windData.data);
+    var windTexture = util.createTexture(gl, gl.LINEAR, gl.REPEAT, windImage);
 
     var particleData = new Uint8Array(numParticles * 4);
     for (var i = 0; i < particleData.length; i++) {
         particleData[i] = Math.floor(Math.random() * 256);
     }
-    var particleTexture0 = util.createTexture(gl, particleTextureSize, gl.NEAREST, particleData);
-    var particleTexture1 = util.createTexture(gl, particleTextureSize, gl.NEAREST, particleData);
+    var particleTexture0 = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, particleData, particleTextureSize);
+    var particleTexture1 = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, particleData, particleTextureSize);
 
     var quadBuffer = util.createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
     var updateProgram = util.createProgram(gl, updateVert, updateFrag);

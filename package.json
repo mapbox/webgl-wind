@@ -14,7 +14,8 @@
     "brfs": "^1.4.3",
     "browserify": "^13.1.1",
     "eslint": "^3.10.2",
-    "eslint-config-mourner": "^2.0.1"
+    "eslint-config-mourner": "^2.0.1",
+    "pngjs": "^3.0.0"
   },
   "eslintConfig": {
     "extends": "mourner"

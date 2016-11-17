@@ -4,19 +4,23 @@ var initScene = require('../src');
 
 var canvas = document.getElementById('canvas');
 
-function resizeCanvas() {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-}
-resizeCanvas();
+canvas.width = canvas.clientWidth;
+canvas.height = canvas.clientHeight;
 
 var gl = canvas.getContext('webgl');
 
-var drawScene = initScene(gl);
+var windData = require('./wind.json');
 
-function frame() {
-    drawScene();
-    requestAnimationFrame(frame);
-}
+var windImage = new Image();
+windImage.src = 'wind.png';
 
-requestAnimationFrame(frame);
+windImage.onload = function () {
+
+    var drawScene = initScene(gl, windData, windImage);
+
+    requestAnimationFrame(function frame() {
+        drawScene();
+        requestAnimationFrame(frame);
+    });
+};
+
