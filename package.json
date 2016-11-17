@@ -5,13 +5,18 @@
   "main": "index.js",
   "scripts": {
     "build": "browserify -t brfs demo/index.js > demo/bundle.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "eslint src/*.js demo/index.js"
   },
   "keywords": [],
   "author": "Vladimir Agafonkin",
   "license": "ISC",
   "devDependencies": {
     "brfs": "^1.4.3",
-    "browserify": "^13.1.1"
+    "browserify": "^13.1.1",
+    "eslint": "^3.10.2",
+    "eslint-config-mourner": "^2.0.1"
+  },
+  "eslintConfig": {
+    "extends": "mourner"
   }
 }

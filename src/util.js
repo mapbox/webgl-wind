@@ -10,7 +10,7 @@ function createShader(gl, type, source) {
     }
 
     return shader;
-};
+}
 
 exports.createProgram = function (gl, vertexSource, fragmentSource) {
     var program = gl.createProgram();

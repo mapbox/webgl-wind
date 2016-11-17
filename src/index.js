@@ -33,7 +33,7 @@ function init(gl) {
     var framebuffer = gl.createFramebuffer();
 
     var particleIndices = new Float32Array(numParticles);
-    for (var i = 0; i < numParticles; i++) particleIndices[i] = i;
+    for (i = 0; i < numParticles; i++) particleIndices[i] = i;
     var particleIndexBuffer = util.createBuffer(gl, particleIndices);
     var drawProgram = util.createProgram(gl, drawVert, drawFrag);
 
@@ -89,5 +89,5 @@ function init(gl) {
     return function draw() {
         drawParticles();
         updateParticles();
-    }
+    };
 }
