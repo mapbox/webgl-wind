@@ -4,6 +4,7 @@ uniform sampler2D u_wind;
 uniform vec2 u_wind_tex_scale;
 uniform float u_wind_tex_size;
 uniform sampler2D u_particles;
+uniform float u_rand_seed;
 
 varying vec2 v_position;
 
@@ -35,10 +36,10 @@ void main() {
     vec4 particle_sample = texture2D(u_particles, v_position);
     vec2 particle_pos = vec2(decode(particle_sample.rg), decode(particle_sample.ba));
 
-    vec2 seed = particle_pos + v_position;
-    if (rand(seed) < 0.96) {
+    vec2 seed = (particle_pos + v_position) * u_rand_seed;
+    if (rand(seed) < 0.995) {
         vec2 speed = (lookup_wind(particle_pos) * 67.0) - 30.0;
-        particle_pos = mod(1.0 + particle_pos + speed * 0.0001, 1.0);
+        particle_pos = mod(1.0 + particle_pos + speed * 0.00001, 1.0);
     } else {
         particle_pos = vec2(rand(seed + 1.3), rand(seed + 2.1));
     }

@@ -77,6 +77,7 @@ function init(gl) {
 
         gl.uniform1f(updateProgram.u_wind_tex_size, windData.size);
         gl.uniform2f(updateProgram.u_wind_tex_scale, windData.width, windData.height);
+        gl.uniform1f(updateProgram.u_rand_seed, Math.random());
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
