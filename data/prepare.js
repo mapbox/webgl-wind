@@ -2,14 +2,13 @@
 
 var PNG = require('pngjs').PNG;
 var fs = require('fs');
-var path = require('path');
 
 var data = JSON.parse(fs.readFileSync('tmp.json'));
 var name = process.argv[2];
 var u = data.u;
 var v = data.v;
 
-var size = Math.pow(2, Math.ceil(Math.log2(u.Ni))); ;
+var size = Math.pow(2, Math.ceil(Math.log2(u.Ni)));
 
 var png = new PNG({
     colorType: 2,
@@ -44,7 +43,7 @@ for (y = 0; y < size; y++) {
 png.pack().pipe(fs.createWriteStream(name + '.png'));
 
 fs.writeFileSync(name + '.json', JSON.stringify({
-    source: "http://nomads.ncep.noaa.gov",
+    source: 'http://nomads.ncep.noaa.gov',
     date: u.dataDate,
     width: u.Ni,
     height: u.Nj - 1,

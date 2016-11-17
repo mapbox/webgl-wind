@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "browserify -t brfs demo/index.js > demo/bundle.js",
-    "test": "eslint src/*.js demo/index.js"
+    "test": "eslint src/*.js demo/index.js data/prepare.js"
   },
   "keywords": [],
   "author": "Vladimir Agafonkin",
