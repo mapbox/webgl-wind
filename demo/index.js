@@ -16,7 +16,7 @@ windImage.src = 'wind.png';
 
 windImage.onload = function () {
 
-    var drawScene = initScene(gl, windData, windImage);
+    var drawScene = initScene(gl, windData, windImage, 512);
 
     requestAnimationFrame(function frame() {
         drawScene();

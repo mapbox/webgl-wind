@@ -58,6 +58,12 @@ exports.createTexture = function (gl, filter, repeat, data, size) {
     return texture;
 };
 
+exports.bindTexture = function (gl, texture, uniform, unit) {
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(uniform, unit);
+};
+
 exports.createBuffer = function (gl, data) {
     var buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);

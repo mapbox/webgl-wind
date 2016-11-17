@@ -11,30 +11,31 @@ var drawFrag = fs.readFileSync(require.resolve('./shaders/draw.frag.glsl'), 'utf
 
 module.exports = init;
 
-var particleTextureSize = 512;
-var numParticles = particleTextureSize * particleTextureSize;
-
-function init(gl, windData, windImage) {
+function init(gl, windData, windImage, particleTextureSize) {
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.STENCIL_TEST);
 
-    var windTexture = util.createTexture(gl, gl.LINEAR, gl.REPEAT, windImage);
+    var updateProgram = util.createProgram(gl, updateVert, updateFrag);
+    var drawProgram = util.createProgram(gl, drawVert, drawFrag);
 
+    var numParticles = particleTextureSize * particleTextureSize;
     var particleData = new Uint8Array(numParticles * 4);
     for (var i = 0; i < particleData.length; i++) {
         particleData[i] = Math.floor(Math.random() * 256);
     }
+
+    var windTexture = util.createTexture(gl, gl.LINEAR, gl.REPEAT, windImage);
+
     var particleTexture0 = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, particleData, particleTextureSize);
     var particleTexture1 = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, particleData, particleTextureSize);
 
     var quadBuffer = util.createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
-    var updateProgram = util.createProgram(gl, updateVert, updateFrag);
-    var framebuffer = gl.createFramebuffer();
 
     var particleIndices = new Float32Array(numParticles);
     for (i = 0; i < numParticles; i++) particleIndices[i] = i;
     var particleIndexBuffer = util.createBuffer(gl, particleIndices);
-    var drawProgram = util.createProgram(gl, drawVert, drawFrag);
+
+    var framebuffer = gl.createFramebuffer();
 
     function drawParticles() {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -44,11 +45,9 @@ function init(gl, windData, windImage) {
         gl.clearColor(0, 0, 0, 1);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, particleTexture0);
-
         gl.useProgram(drawProgram.program);
 
+        util.bindTexture(gl, particleTexture0, drawProgram.u_particles, 0);
         util.bindAttribute(gl, particleIndexBuffer, drawProgram.a_index, 1);
 
         gl.uniform1f(drawProgram.u_particles_tex_size, particleTextureSize);
@@ -60,18 +59,12 @@ function init(gl, windData, windImage) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, particleTexture1, 0);
 
-        gl.useProgram(updateProgram.program);
-
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, particleTexture0);
-        gl.uniform1i(updateProgram.u_particles, 0);
-
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, windTexture);
-        gl.uniform1i(updateProgram.u_wind, 1);
-
         gl.viewport(0, 0, particleTextureSize, particleTextureSize);
 
+        gl.useProgram(updateProgram.program);
+
+        util.bindTexture(gl, particleTexture0, updateProgram.u_particles, 0);
+        util.bindTexture(gl, windTexture, updateProgram.u_wind, 1);
         util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
 
         gl.uniform1f(updateProgram.u_wind_tex_size, windData.size);
