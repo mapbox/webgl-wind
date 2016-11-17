@@ -10,12 +10,13 @@ and its [open-source version](https://github.com/cambecc/earth),
 and [Fernanda Viégas and Martin Wattenberg](http://hint.fm/) with their
 [US Wind Map project](http://hint.fm/projects/wind/).
 
-### Running locally
+### Running the demo locally
 
 ```bash
 npm install
 npm run build
-open demo/index.html
+npm start
+# open http://127.0.0.1:1337
 ```
 
 ### Downloading weather data

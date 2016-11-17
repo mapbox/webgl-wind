@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "build": "browserify -t brfs demo/index.js > demo/bundle.js",
-    "test": "eslint src/*.js demo/index.js data/prepare.js"
+    "watch": "watchify -v -t brfs demo/index.js -o demo/bundle.js",
+    "test": "eslint src/*.js demo/index.js data/prepare.js",
+    "start": "st -nc -i index.html -d demo"
   },
   "keywords": [],
   "author": "Vladimir Agafonkin",
@@ -15,7 +17,9 @@
     "browserify": "^13.1.1",
     "eslint": "^3.10.2",
     "eslint-config-mourner": "^2.0.1",
-    "pngjs": "^3.0.0"
+    "pngjs": "^3.0.0",
+    "st": "^1.2.0",
+    "watchify": "^3.7.0"
   },
   "eslintConfig": {
     "extends": "mourner"
