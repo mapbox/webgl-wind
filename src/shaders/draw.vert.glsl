@@ -17,6 +17,6 @@ void main() {
     vec4 particle_sample = texture2D(u_particles, vec2(x, y) / u_particles_tex_size);
     particle_pos = vec2(decode(particle_sample.rg), decode(particle_sample.ba));
 
-    gl_PointSize = 2.0;
+    gl_PointSize = 1.0;
     gl_Position = vec4(1.0 - 2.0 * particle_pos, 0, 1);
 }

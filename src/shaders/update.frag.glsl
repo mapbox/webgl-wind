@@ -41,7 +41,7 @@ void main() {
     vec2 seed = (particle_pos + v_position) * u_rand_seed;
     if (rand(seed) < 0.995) {
         vec2 velocity = u_wind_min + (u_wind_max - u_wind_min) * lookup_wind(particle_pos);
-        particle_pos = mod(1.0 + particle_pos + velocity * 0.00001, 1.0);
+        particle_pos = mod(1.0 + particle_pos + velocity * 0.00003, 1.0);
     } else {
         particle_pos = vec2(rand(seed + 1.3), rand(seed + 2.1));
     }
