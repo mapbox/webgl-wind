@@ -23,9 +23,6 @@ var defaultRampColors = {
 };
 
 function init(gl, windData, windImage, particleTextureSize) {
-    gl.disable(gl.DEPTH_TEST);
-    gl.disable(gl.STENCIL_TEST);
-
     var updateProgram = util.createProgram(gl, updateVert, updateFrag);
     var drawProgram = util.createProgram(gl, drawVert, drawFrag);
 
@@ -51,26 +48,32 @@ function init(gl, windData, windImage, particleTextureSize) {
 
     var framebuffer = gl.createFramebuffer();
 
-    util.bindTexture(gl, windTexture, 0);
-    util.bindTexture(gl, colorRampTexture, 1);
-
-    function drawParticles() {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    function draw() {
+        gl.disable(gl.DEPTH_TEST);
+        gl.disable(gl.STENCIL_TEST);
 
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
         gl.clearColor(0, 0, 0, 1);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
+        util.bindTexture(gl, windTexture, 0);
+        util.bindTexture(gl, particleTexture0, 1);
+
+        drawParticles();
+        updateParticles();
+    }
+
+    function drawParticles() {
         gl.useProgram(drawProgram.program);
 
         util.bindAttribute(gl, particleIndexBuffer, drawProgram.a_index, 1);
 
-        util.bindTexture(gl, particleTexture0, 2);
+        util.bindTexture(gl, colorRampTexture, 2);
 
         gl.uniform1i(drawProgram.u_wind, 0);
-        gl.uniform1i(drawProgram.u_color_ramp, 1);
-        gl.uniform1i(drawProgram.u_particles, 2);
+        gl.uniform1i(drawProgram.u_particles, 1);
+        gl.uniform1i(drawProgram.u_color_ramp, 2);
 
         gl.uniform1f(drawProgram.u_particles_tex_size, particleTextureSize);
         gl.uniform1f(drawProgram.u_wind_tex_size, windData.size);
@@ -84,17 +87,14 @@ function init(gl, windData, windImage, particleTextureSize) {
     function updateParticles() {
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, particleTexture1, 0);
-
         gl.viewport(0, 0, particleTextureSize, particleTextureSize);
 
         gl.useProgram(updateProgram.program);
 
         util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
 
-        util.bindTexture(gl, particleTexture0, 2);
-
         gl.uniform1i(updateProgram.u_wind, 0);
-        gl.uniform1i(updateProgram.u_particles, 2);
+        gl.uniform1i(updateProgram.u_particles, 1);
 
         gl.uniform1f(updateProgram.u_wind_tex_size, windData.size);
         gl.uniform2f(updateProgram.u_wind_tex_scale, windData.width, windData.height);
@@ -107,12 +107,11 @@ function init(gl, windData, windImage, particleTextureSize) {
         var tempTexture = particleTexture0;
         particleTexture0 = particleTexture1;
         particleTexture1 = tempTexture;
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 
-    return function draw() {
-        drawParticles();
-        updateParticles();
-    };
+    return draw;
 }
 
 function getColorRamp(colors) {
