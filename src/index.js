@@ -51,6 +51,9 @@ function init(gl, windData, windImage, particleTextureSize) {
 
     var framebuffer = gl.createFramebuffer();
 
+    util.bindTexture(gl, windTexture, 0);
+    util.bindTexture(gl, colorRampTexture, 1);
+
     function drawParticles() {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
@@ -63,9 +66,11 @@ function init(gl, windData, windImage, particleTextureSize) {
 
         util.bindAttribute(gl, particleIndexBuffer, drawProgram.a_index, 1);
 
-        util.bindTexture(gl, particleTexture0, drawProgram.u_particles, 0);
-        util.bindTexture(gl, windTexture, drawProgram.u_wind, 1);
-        util.bindTexture(gl, colorRampTexture, drawProgram.u_color_ramp, 2);
+        util.bindTexture(gl, particleTexture0, 2);
+
+        gl.uniform1i(drawProgram.u_wind, 0);
+        gl.uniform1i(drawProgram.u_color_ramp, 1);
+        gl.uniform1i(drawProgram.u_particles, 2);
 
         gl.uniform1f(drawProgram.u_particles_tex_size, particleTextureSize);
         gl.uniform1f(drawProgram.u_wind_tex_size, windData.size);
@@ -86,8 +91,10 @@ function init(gl, windData, windImage, particleTextureSize) {
 
         util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
 
-        util.bindTexture(gl, particleTexture0, updateProgram.u_particles, 0);
-        util.bindTexture(gl, windTexture, updateProgram.u_wind, 1);
+        util.bindTexture(gl, particleTexture0, 2);
+
+        gl.uniform1i(updateProgram.u_wind, 0);
+        gl.uniform1i(updateProgram.u_particles, 2);
 
         gl.uniform1f(updateProgram.u_wind_tex_size, windData.size);
         gl.uniform2f(updateProgram.u_wind_tex_scale, windData.width, windData.height);
