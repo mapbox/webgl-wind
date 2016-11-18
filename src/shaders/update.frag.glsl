@@ -34,6 +34,8 @@ vec2 lookup_wind(const vec2 uv) {
     return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
 }
 
+const float PI = 3.1415926536;
+
 void main() {
     vec4 particle_sample = texture2D(u_particles, v_position);
     vec2 particle_pos = vec2(decode(particle_sample.rg), decode(particle_sample.ba));
@@ -41,7 +43,9 @@ void main() {
     vec2 seed = (particle_pos + v_position) * u_rand_seed;
     if (rand(seed) < 0.995) {
         vec2 velocity = u_wind_min + (u_wind_max - u_wind_min) * lookup_wind(particle_pos);
-        particle_pos = mod(1.0 + particle_pos + velocity * 0.00003, 1.0);
+        float dx = velocity.x / max(0.1, cos(PI * (particle_pos.y - 0.5)));
+        float dy = -velocity.y;
+        particle_pos = mod(1.0 + particle_pos + vec2(dx, dy) * 0.00001, 1.0);
     } else {
         particle_pos = vec2(rand(seed + 1.3), rand(seed + 2.1));
     }
