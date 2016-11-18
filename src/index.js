@@ -11,6 +11,17 @@ var drawFrag = fs.readFileSync(require.resolve('./shaders/draw.frag.glsl'), 'utf
 
 module.exports = init;
 
+var defaultRampColors = {
+    0.0: '#3288bd',
+    0.1: '#66c2a5',
+    0.2: '#abdda4',
+    0.3: '#e6f598',
+    0.4: '#fee08b',
+    0.6: '#fdae61',
+    0.8: '#f46d43',
+    1.0: '#d53e4f'
+};
+
 function init(gl, windData, windImage, particleTextureSize) {
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.STENCIL_TEST);
@@ -28,6 +39,9 @@ function init(gl, windData, windImage, particleTextureSize) {
 
     var particleTexture0 = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, particleData, particleTextureSize);
     var particleTexture1 = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, particleData, particleTextureSize);
+
+    var colorRamp = getColorRamp(defaultRampColors);
+    var colorRampTexture = util.createTexture(gl, gl.LINEAR, gl.CLAMP_TO_EDGE, colorRamp, 16);
 
     var quadBuffer = util.createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
 
@@ -47,10 +61,17 @@ function init(gl, windData, windImage, particleTextureSize) {
 
         gl.useProgram(drawProgram.program);
 
-        util.bindTexture(gl, particleTexture0, drawProgram.u_particles, 0);
         util.bindAttribute(gl, particleIndexBuffer, drawProgram.a_index, 1);
 
+        util.bindTexture(gl, particleTexture0, drawProgram.u_particles, 0);
+        util.bindTexture(gl, windTexture, drawProgram.u_wind, 1);
+        util.bindTexture(gl, colorRampTexture, drawProgram.u_color_ramp, 2);
+
         gl.uniform1f(drawProgram.u_particles_tex_size, particleTextureSize);
+        gl.uniform1f(drawProgram.u_wind_tex_size, windData.size);
+        gl.uniform2f(drawProgram.u_wind_tex_scale, windData.width, windData.height);
+        gl.uniform2f(drawProgram.u_wind_min, windData.uMin, windData.vMin);
+        gl.uniform2f(drawProgram.u_wind_max, windData.uMax, windData.vMax);
 
         gl.drawArrays(gl.POINTS, 0, numParticles);
     }
@@ -63,9 +84,10 @@ function init(gl, windData, windImage, particleTextureSize) {
 
         gl.useProgram(updateProgram.program);
 
+        util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
+
         util.bindTexture(gl, particleTexture0, updateProgram.u_particles, 0);
         util.bindTexture(gl, windTexture, updateProgram.u_wind, 1);
-        util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
 
         gl.uniform1f(updateProgram.u_wind_tex_size, windData.size);
         gl.uniform2f(updateProgram.u_wind_tex_scale, windData.width, windData.height);
@@ -84,4 +106,22 @@ function init(gl, windData, windImage, particleTextureSize) {
         drawParticles();
         updateParticles();
     };
+}
+
+function getColorRamp(colors) {
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+
+    canvas.width = 256;
+    canvas.height = 1;
+
+    var gradient = ctx.createLinearGradient(0, 0, 256, 0);
+    for (var stop in colors) {
+        gradient.addColorStop(+stop, colors[stop]);
+    }
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 256, 1);
+
+    return new Uint8Array(ctx.getImageData(0, 0, 256, 1).data);
 }

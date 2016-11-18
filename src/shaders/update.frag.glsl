@@ -1,11 +1,11 @@
 precision mediump float;
 
+uniform sampler2D u_particles;
 uniform sampler2D u_wind;
 uniform vec2 u_wind_tex_scale;
 uniform float u_wind_tex_size;
 uniform vec2 u_wind_min;
 uniform vec2 u_wind_max;
-uniform sampler2D u_particles;
 uniform float u_rand_seed;
 
 varying vec2 v_position;
@@ -16,7 +16,7 @@ vec2 encode(const float value) {
 float decode(const vec2 channels) {
     return dot(channels, vec2(255.0, 255.0 * 255.0)) / (255.0 * 255.0);
 }
-float rand(vec2 co) {
+float rand(const vec2 co) {
     float t = 12.9898 * co.x + 78.233 * co.y;
     return fract(sin(t) * (4375.85453 + t));
 }
