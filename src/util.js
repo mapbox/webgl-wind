@@ -75,3 +75,10 @@ exports.bindAttribute = function (gl, buffer, attribute, numComponents) {
     gl.enableVertexAttribArray(attribute);
     gl.vertexAttribPointer(attribute, numComponents, gl.FLOAT, false, 0, 0);
 };
+
+exports.bindFramebuffer = function (gl, framebuffer, texture) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    if (texture) {
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    }
+};

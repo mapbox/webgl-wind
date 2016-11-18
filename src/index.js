@@ -52,20 +52,27 @@ function init(gl, windData, windImage, particleStateTextureSize) {
         gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.STENCIL_TEST);
 
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
         util.bindTexture(gl, windTexture, 0);
         util.bindTexture(gl, particleStateTexture0, 1);
 
+        util.bindFramebuffer(gl, null);
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         drawParticles();
+
+        util.bindFramebuffer(gl, framebuffer, particleStateTexture1);
+        gl.viewport(0, 0, particleStateTextureSize, particleStateTextureSize);
         updateParticles();
+
+        var temp = particleStateTexture0;
+        particleStateTexture0 = particleStateTexture1;
+        particleStateTexture1 = temp;
     }
 
     function drawParticles() {
         gl.useProgram(drawProgram.program);
+
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
 
         util.bindAttribute(gl, particleIndexBuffer, drawProgram.a_index, 1);
 
@@ -85,10 +92,6 @@ function init(gl, windData, windImage, particleStateTextureSize) {
     }
 
     function updateParticles() {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, particleStateTexture1, 0);
-        gl.viewport(0, 0, particleStateTextureSize, particleStateTextureSize);
-
         gl.useProgram(updateProgram.program);
 
         util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
@@ -103,12 +106,6 @@ function init(gl, windData, windImage, particleStateTextureSize) {
         gl.uniform2f(updateProgram.u_wind_max, windData.uMax, windData.vMax);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-        var tempTexture = particleStateTexture0;
-        particleStateTexture0 = particleStateTexture1;
-        particleStateTexture1 = tempTexture;
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 
     return draw;
