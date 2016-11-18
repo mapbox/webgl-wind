@@ -70,6 +70,8 @@ function init(gl, windData, windImage, particleTextureSize) {
         gl.uniform1f(updateProgram.u_wind_tex_size, windData.size);
         gl.uniform2f(updateProgram.u_wind_tex_scale, windData.width, windData.height);
         gl.uniform1f(updateProgram.u_rand_seed, Math.random());
+        gl.uniform2f(updateProgram.u_wind_min, windData.uMin, windData.vMin);
+        gl.uniform2f(updateProgram.u_wind_max, windData.uMax, windData.vMax);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
