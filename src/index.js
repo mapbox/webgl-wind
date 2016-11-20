@@ -3,17 +3,14 @@
 var util = require('./util');
 var fs = require('fs');
 
-var updateVert = fs.readFileSync(require.resolve('./shaders/update.vert.glsl'), 'utf8');
-var updateFrag = fs.readFileSync(require.resolve('./shaders/update.frag.glsl'), 'utf8');
-
 var drawVert = fs.readFileSync(require.resolve('./shaders/draw.vert.glsl'), 'utf8');
 var drawFrag = fs.readFileSync(require.resolve('./shaders/draw.frag.glsl'), 'utf8');
 
-var blendVert = fs.readFileSync(require.resolve('./shaders/blend.vert.glsl'), 'utf8');
-var blendFrag = fs.readFileSync(require.resolve('./shaders/blend.frag.glsl'), 'utf8');
+var quadVert = fs.readFileSync(require.resolve('./shaders/quad.vert.glsl'), 'utf8');
 
-var screenVert = fs.readFileSync(require.resolve('./shaders/screen.vert.glsl'), 'utf8');
+var blendFrag = fs.readFileSync(require.resolve('./shaders/blend.frag.glsl'), 'utf8');
 var screenFrag = fs.readFileSync(require.resolve('./shaders/screen.frag.glsl'), 'utf8');
+var updateFrag = fs.readFileSync(require.resolve('./shaders/update.frag.glsl'), 'utf8');
 
 module.exports = init;
 
@@ -29,10 +26,10 @@ var defaultRampColors = {
 };
 
 function init(gl, windData, windImage, particleStateTextureSize) {
-    var updateProgram = util.createProgram(gl, updateVert, updateFrag);
     var drawProgram = util.createProgram(gl, drawVert, drawFrag);
-    var screenProgram = util.createProgram(gl, screenVert, screenFrag);
-    var blendProgram = util.createProgram(gl, blendVert, blendFrag);
+    var blendProgram = util.createProgram(gl, quadVert, blendFrag);
+    var screenProgram = util.createProgram(gl, quadVert, screenFrag);
+    var updateProgram = util.createProgram(gl, quadVert, updateFrag);
 
     var numParticles = particleStateTextureSize * particleStateTextureSize;
     var particleState = new Uint8Array(numParticles * 4);
