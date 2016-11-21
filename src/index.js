@@ -15,8 +15,8 @@ var defaultRampColors = {
     0.2: '#abdda4',
     0.3: '#e6f598',
     0.4: '#fee08b',
-    0.6: '#fdae61',
-    0.9: '#f46d43',
+    0.5: '#fdae61',
+    0.6: '#f46d43',
     1.0: '#d53e4f'
 };
 
@@ -61,7 +61,7 @@ export function init(gl, windData, windImage, particleStateTextureSize) {
         util.bindFramebuffer(gl, framebuffer, screenTexture);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-        drawTexture(backgroundTexture, 0.996);
+        drawTexture(backgroundTexture, 0.999);
         drawParticles();
 
         util.bindFramebuffer(gl, null);

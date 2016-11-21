@@ -41,7 +41,7 @@ void main() {
     vec2 seed = (particle_pos + v_position) * u_rand_seed;
 
     particle_pos = rand(seed) < 0.997 - speed_t * 0.01
-        ? mod(1.0 + particle_pos + vec2(dx, dy) * 0.00002, 1.0)
+        ? fract(1.0 + particle_pos + vec2(dx, dy) * 0.00002)
         : vec2(rand(seed + 1.3), rand(seed + 2.1));
 
     gl_FragColor = vec4(encode(particle_pos.x), encode(particle_pos.y));
