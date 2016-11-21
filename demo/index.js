@@ -8,7 +8,7 @@ canvas.height = canvas.clientHeight;
 var gl = canvas.getContext('webgl');
 
 var wind = window.wind = new WindGL(gl);
-wind.setParticles(256);
+wind.setParticles(65536);
 
 function frame() {
     if (wind.windData) {

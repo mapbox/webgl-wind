@@ -40,17 +40,18 @@ export class WindGL {
         this.framebuffer = gl.createFramebuffer();
     }
 
-    setParticles(particleStateResolution) {
+    setParticles(numParticles) {
         var gl = this.gl;
-        this.particleStateResolution = particleStateResolution;
-        this.numParticles = particleStateResolution * particleStateResolution;
+
+        var particleRes = this.particleStateResolution = Math.ceil(Math.sqrt(numParticles));
+        this.numParticles = particleRes * particleRes;
 
         var particleState = new Uint8Array(this.numParticles * 4);
         for (var i = 0; i < particleState.length; i++) {
             particleState[i] = Math.floor(Math.random() * 256);
         }
-        this.particleStateTexture0 = util.createTexture(gl, gl.NEAREST, particleState, particleStateResolution, particleStateResolution);
-        this.particleStateTexture1 = util.createTexture(gl, gl.NEAREST, particleState, particleStateResolution, particleStateResolution);
+        this.particleStateTexture0 = util.createTexture(gl, gl.NEAREST, particleState, particleRes, particleRes);
+        this.particleStateTexture1 = util.createTexture(gl, gl.NEAREST, particleState, particleRes, particleRes);
 
         var particleIndices = new Float32Array(this.numParticles);
         for (i = 0; i < this.numParticles; i++) particleIndices[i] = i;
