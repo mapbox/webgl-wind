@@ -8,11 +8,12 @@ uniform sampler2D u_color_ramp;
 varying vec2 v_particle_pos;
 
 void main() {
-    vec2 velocity = u_wind_min + (u_wind_max - u_wind_min) * texture2D(u_wind, v_particle_pos).rg;
+    vec2 velocity = mix(u_wind_min, u_wind_max, texture2D(u_wind, v_particle_pos).rg);
     float speed_t = length(velocity) / length(u_wind_max);
 
-    float x = fract(16.0 * speed_t);
-    float y = floor(16.0 * speed_t) / 16.0;
+    vec2 ramp_pos = vec2(
+        fract(16.0 * speed_t),
+        floor(16.0 * speed_t) / 16.0);
 
-    gl_FragColor = texture2D(u_color_ramp, vec2(x, y));
+    gl_FragColor = texture2D(u_color_ramp, ramp_pos);
 }

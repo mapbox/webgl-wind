@@ -8,11 +8,14 @@ uniform float u_particles_res;
 varying vec2 v_particle_pos;
 
 void main() {
-    float x = mod(a_index, u_particles_res);
-    float y = floor(a_index / u_particles_res);
-    vec4 color = texture2D(u_particles, vec2(x, y) / u_particles_res);
-    v_particle_pos = vec2(color.r / 255.0 + color.g, color.b / 255.0 + color.a);
+    vec4 color = texture2D(u_particles, vec2(
+        fract(a_index / u_particles_res),
+        floor(a_index / u_particles_res) / u_particles_res));
+
+    v_particle_pos = vec2(
+        color.r / 255.0 + color.b,
+        color.g / 255.0 + color.a);
 
     gl_PointSize = 1.0;
-    gl_Position = vec4(1.0 - 2.0 * vec2(1.0 - v_particle_pos.x, v_particle_pos.y), 0, 1);
+    gl_Position = vec4(2.0 * v_particle_pos.x - 1.0, 1.0 - 2.0 * v_particle_pos.y, 0, 1);
 }

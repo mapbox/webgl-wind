@@ -28,13 +28,15 @@ vec2 lookup_wind(const vec2 uv) {
 
 void main() {
     vec4 color = texture2D(u_particles, v_tex_pos);
-    vec2 pos = vec2(color.r / 255.0 + color.g, color.b / 255.0 + color.a);
+    vec2 pos = vec2(
+        color.r / 255.0 + color.b,
+        color.g / 255.0 + color.a);
 
-    vec2 velocity = u_wind_min + (u_wind_max - u_wind_min) * lookup_wind(pos);
+    vec2 velocity = mix(u_wind_min, u_wind_max, lookup_wind(pos));
     float speed_t = length(velocity) / length(u_wind_max);
 
-    float dx = velocity.x / max(0.1, cos(3.1415926536 * (pos.y - 0.5)));
-    vec2 offset = vec2(dx, -velocity.y) * 0.00002;
+    float distortion = max(0.1, cos(radians(pos.y * 180.0 - 90.0)));
+    vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.00002;
 
     vec2 seed = (pos + v_tex_pos) * u_rand_seed;
 
@@ -43,6 +45,6 @@ void main() {
         : vec2(rand(seed + 1.3), rand(seed + 2.1));
 
     gl_FragColor = vec4(
-        fract(pos.x * 255.0), floor(pos.x * 255.0) / 255.0,
-        fract(pos.y * 255.0), floor(pos.y * 255.0) / 255.0);
+        fract(pos * 255.0),
+        floor(pos * 255.0) / 255.0);
 }
