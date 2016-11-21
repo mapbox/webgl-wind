@@ -20,117 +20,130 @@ var defaultRampColors = {
     1.0: '#d53e4f'
 };
 
-export function init(gl, windData, windImage, particleStateResolution) {
-    var drawProgram = util.createProgram(gl, drawVert, drawFrag);
-    var screenProgram = util.createProgram(gl, quadVert, screenFrag);
-    var updateProgram = util.createProgram(gl, quadVert, updateFrag);
+export class WindGL {
+    constructor(gl) {
+        this.gl = gl;
 
-    var numParticles = particleStateResolution * particleStateResolution;
-    var particleState = new Uint8Array(numParticles * 4);
-    for (var i = 0; i < particleState.length; i++) {
-        particleState[i] = Math.floor(Math.random() * 256);
+        this.drawProgram = util.createProgram(gl, drawVert, drawFrag);
+        this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
+        this.updateProgram = util.createProgram(gl, quadVert, updateFrag);
+
+        var emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
+        this.backgroundTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+        this.screenTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+
+        var colorRamp = getColorRamp(defaultRampColors);
+        this.colorRampTexture = util.createTexture(gl, gl.LINEAR, colorRamp, 16, 16);
+
+        this.quadBuffer = util.createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
+
+        this.framebuffer = gl.createFramebuffer();
     }
 
-    var windTexture = util.createTexture(gl, gl.LINEAR, windImage);
+    setParticles(particleStateResolution) {
+        var gl = this.gl;
+        this.particleStateResolution = particleStateResolution;
+        this.numParticles = particleStateResolution * particleStateResolution;
 
-    var particleStateTexture0 = util.createTexture(gl, gl.NEAREST, particleState, particleStateResolution, particleStateResolution);
-    var particleStateTexture1 = util.createTexture(gl, gl.NEAREST, particleState, particleStateResolution, particleStateResolution);
+        var particleState = new Uint8Array(this.numParticles * 4);
+        for (var i = 0; i < particleState.length; i++) {
+            particleState[i] = Math.floor(Math.random() * 256);
+        }
+        this.particleStateTexture0 = util.createTexture(gl, gl.NEAREST, particleState, particleStateResolution, particleStateResolution);
+        this.particleStateTexture1 = util.createTexture(gl, gl.NEAREST, particleState, particleStateResolution, particleStateResolution);
 
-    var emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
-    var backgroundTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
-    var screenTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+        var particleIndices = new Float32Array(this.numParticles);
+        for (i = 0; i < this.numParticles; i++) particleIndices[i] = i;
+        this.particleIndexBuffer = util.createBuffer(gl, particleIndices);
+    }
 
-    var colorRamp = getColorRamp(defaultRampColors);
-    var colorRampTexture = util.createTexture(gl, gl.LINEAR, colorRamp, 16, 16);
+    setWind(windData, windImage) {
+        this.windData = windData;
+        this.windTexture = util.createTexture(this.gl, this.gl.LINEAR, windImage);
+    }
 
-    var quadBuffer = util.createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
-
-    var particleIndices = new Float32Array(numParticles);
-    for (i = 0; i < numParticles; i++) particleIndices[i] = i;
-    var particleIndexBuffer = util.createBuffer(gl, particleIndices);
-
-    var framebuffer = gl.createFramebuffer();
-
-    function draw() {
+    draw() {
+        var gl = this.gl;
         gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.STENCIL_TEST);
 
-        util.bindTexture(gl, windTexture, 0);
-        util.bindTexture(gl, particleStateTexture0, 1);
+        util.bindTexture(gl, this.windTexture, 0);
+        util.bindTexture(gl, this.particleStateTexture0, 1);
 
-        util.bindFramebuffer(gl, framebuffer, screenTexture);
+        util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-        drawTexture(backgroundTexture, 0.999);
-        drawParticles();
+        this.drawTexture(this.backgroundTexture, 0.999);
+        this.drawParticles();
 
         util.bindFramebuffer(gl, null);
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        drawTexture(screenTexture, 1.0);
+        this.drawTexture(this.screenTexture, 1.0);
         gl.disable(gl.BLEND);
 
-        util.bindFramebuffer(gl, framebuffer, particleStateTexture1);
-        gl.viewport(0, 0, particleStateResolution, particleStateResolution);
-        updateParticles();
+        util.bindFramebuffer(gl, this.framebuffer, this.particleStateTexture1);
+        gl.viewport(0, 0, this.particleStateResolution, this.particleStateResolution);
+        this.updateParticles();
 
-        var temp = backgroundTexture;
-        backgroundTexture = screenTexture;
-        screenTexture = temp;
+        var temp = this.backgroundTexture;
+        this.backgroundTexture = this.screenTexture;
+        this.screenTexture = temp;
 
-        temp = particleStateTexture0;
-        particleStateTexture0 = particleStateTexture1;
-        particleStateTexture1 = temp;
+        temp = this.particleStateTexture0;
+        this.particleStateTexture0 = this.particleStateTexture1;
+        this.particleStateTexture1 = temp;
     }
 
-    function drawTexture(texture, opacity) {
-        gl.useProgram(screenProgram.program);
+    drawTexture(texture, opacity) {
+        var gl = this.gl;
+        var program = this.screenProgram;
+        gl.useProgram(program.program);
 
-        util.bindAttribute(gl, quadBuffer, updateProgram.a_pos, 2);
-
+        util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
         util.bindTexture(gl, texture, 2);
-        gl.uniform1i(screenProgram.u_screen, 2);
-
-        gl.uniform1f(screenProgram.u_opacity, opacity);
-
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-    }
-
-    function drawParticles() {
-        gl.useProgram(drawProgram.program);
-
-        util.bindAttribute(gl, particleIndexBuffer, drawProgram.a_index, 1);
-
-        util.bindTexture(gl, colorRampTexture, 2);
-
-        gl.uniform1i(drawProgram.u_wind, 0);
-        gl.uniform1i(drawProgram.u_particles, 1);
-        gl.uniform1i(drawProgram.u_color_ramp, 2);
-
-        gl.uniform1f(drawProgram.u_particles_res, particleStateResolution);
-        gl.uniform2f(drawProgram.u_wind_min, windData.uMin, windData.vMin);
-        gl.uniform2f(drawProgram.u_wind_max, windData.uMax, windData.vMax);
-
-        gl.drawArrays(gl.POINTS, 0, numParticles);
-    }
-
-    function updateParticles() {
-        gl.useProgram(updateProgram.program);
-
-        util.bindAttribute(gl, quadBuffer, updateProgram.a_pos, 2);
-
-        gl.uniform1i(updateProgram.u_wind, 0);
-        gl.uniform1i(updateProgram.u_particles, 1);
-
-        gl.uniform1f(updateProgram.u_rand_seed, Math.random());
-        gl.uniform2f(updateProgram.u_wind_res, windData.width, windData.height);
-        gl.uniform2f(updateProgram.u_wind_min, windData.uMin, windData.vMin);
-        gl.uniform2f(updateProgram.u_wind_max, windData.uMax, windData.vMax);
+        gl.uniform1i(program.u_screen, 2);
+        gl.uniform1f(program.u_opacity, opacity);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
 
-    return draw;
+    drawParticles() {
+        var gl = this.gl;
+        var program = this.drawProgram;
+        gl.useProgram(program.program);
+
+        util.bindAttribute(gl, this.particleIndexBuffer, program.a_index, 1);
+        util.bindTexture(gl, this.colorRampTexture, 2);
+
+        gl.uniform1i(program.u_wind, 0);
+        gl.uniform1i(program.u_particles, 1);
+        gl.uniform1i(program.u_color_ramp, 2);
+
+        gl.uniform1f(program.u_particles_res, this.particleStateResolution);
+        gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
+        gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+
+        gl.drawArrays(gl.POINTS, 0, this.numParticles);
+    }
+
+    updateParticles() {
+        var gl = this.gl;
+        var program = this.updateProgram;
+        gl.useProgram(program.program);
+
+        util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
+
+        gl.uniform1i(program.u_wind, 0);
+        gl.uniform1i(program.u_particles, 1);
+
+        gl.uniform1f(program.u_rand_seed, Math.random());
+        gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
+        gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
+        gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
 }
 
 function getColorRamp(colors) {
