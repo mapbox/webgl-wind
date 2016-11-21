@@ -42,7 +42,6 @@ function init(gl, windData, windImage, particleStateTextureSize) {
 
     var emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
     var backgroundTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, emptyPixels, gl.canvas.width, gl.canvas.height);
-    var particlesTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, emptyPixels, gl.canvas.width, gl.canvas.height);
     var screenTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, emptyPixels, gl.canvas.width, gl.canvas.height);
 
     var colorRamp = getColorRamp(defaultRampColors);
@@ -75,13 +74,13 @@ function init(gl, windData, windImage, particleStateTextureSize) {
         drawTexture(screenTexture, 1.0);
         gl.disable(gl.BLEND);
 
-        var temp = backgroundTexture;
-        backgroundTexture = screenTexture;
-        screenTexture = temp;
-
         util.bindFramebuffer(gl, framebuffer, particleStateTexture1);
         gl.viewport(0, 0, particleStateTextureSize, particleStateTextureSize);
         updateParticles();
+
+        var temp = backgroundTexture;
+        backgroundTexture = screenTexture;
+        screenTexture = temp;
 
         temp = particleStateTexture0;
         particleStateTexture0 = particleStateTexture1;
