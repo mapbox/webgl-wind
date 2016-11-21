@@ -68,15 +68,21 @@ function init(gl, windData, windImage, particleStateTextureSize) {
         util.bindTexture(gl, windTexture, 0);
         util.bindTexture(gl, particleStateTexture0, 1);
 
-        util.bindFramebuffer(gl, framebuffer, particlesTexture);
+        util.bindFramebuffer(gl, framebuffer, screenTexture);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        drawTexture(backgroundTexture, 0.5);
+
+        // gl.enable(gl.BLEND);
+        // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
         drawParticles();
 
-        util.bindFramebuffer(gl, framebuffer, screenTexture);
-        addTrails();
-
         util.bindFramebuffer(gl, null);
-        drawScreen();
+        drawTexture(screenTexture, 1.0);
 
         var temp = backgroundTexture;
         backgroundTexture = screenTexture;
@@ -91,11 +97,21 @@ function init(gl, windData, windImage, particleStateTextureSize) {
         particleStateTexture1 = temp;
     }
 
+    function drawTexture(texture, opacity) {
+        gl.useProgram(screenProgram.program);
+
+        util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
+
+        util.bindTexture(gl, texture, 2);
+        gl.uniform1i(screenProgram.u_screen, 2);
+
+        gl.uniform1f(screenProgram.u_opacity, opacity);
+
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
     function drawParticles() {
         gl.useProgram(drawProgram.program);
-
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
 
         util.bindAttribute(gl, particleIndexBuffer, drawProgram.a_index, 1);
 
@@ -112,33 +128,6 @@ function init(gl, windData, windImage, particleStateTextureSize) {
         gl.uniform2f(drawProgram.u_wind_max, windData.uMax, windData.vMax);
 
         gl.drawArrays(gl.POINTS, 0, numParticles);
-    }
-
-    function addTrails() {
-        gl.useProgram(blendProgram.program);
-
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
-        util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
-
-        util.bindTexture(gl, backgroundTexture, 2);
-        util.bindTexture(gl, particlesTexture, 3);
-
-        gl.uniform1i(blendProgram.u_background, 2);
-        gl.uniform1i(blendProgram.u_foreground, 3);
-
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-    }
-
-    function drawScreen() {
-        gl.useProgram(screenProgram.program);
-
-        util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
-        util.bindTexture(gl, screenTexture, 2);
-        gl.uniform1i(screenProgram.u_screen, 2);
-
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
 
     function updateParticles() {
