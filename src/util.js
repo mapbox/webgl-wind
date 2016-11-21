@@ -1,4 +1,3 @@
-'use strict';
 
 function createShader(gl, type, source) {
     var shader = gl.createShader(type);
@@ -12,7 +11,7 @@ function createShader(gl, type, source) {
     return shader;
 }
 
-exports.createProgram = function (gl, vertexSource, fragmentSource) {
+export function createProgram(gl, vertexSource, fragmentSource) {
     var program = gl.createProgram();
 
     var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
@@ -40,9 +39,9 @@ exports.createProgram = function (gl, vertexSource, fragmentSource) {
     }
 
     return wrapper;
-};
+}
 
-exports.createTexture = function (gl, filter, data, width, height) {
+export function createTexture(gl, filter, data, width, height) {
     var texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -56,29 +55,29 @@ exports.createTexture = function (gl, filter, data, width, height) {
     }
     gl.bindTexture(gl.TEXTURE_2D, null);
     return texture;
-};
+}
 
-exports.bindTexture = function (gl, texture, unit) {
+export function bindTexture(gl, texture, unit) {
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.bindTexture(gl.TEXTURE_2D, texture);
-};
+}
 
-exports.createBuffer = function (gl, data) {
+export function createBuffer(gl, data) {
     var buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     return buffer;
-};
+}
 
-exports.bindAttribute = function (gl, buffer, attribute, numComponents) {
+export function bindAttribute(gl, buffer, attribute, numComponents) {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.enableVertexAttribArray(attribute);
     gl.vertexAttribPointer(attribute, numComponents, gl.FLOAT, false, 0, 0);
-};
+}
 
-exports.bindFramebuffer = function (gl, framebuffer, texture) {
+export function bindFramebuffer(gl, framebuffer, texture) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     if (texture) {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
     }
-};
+}

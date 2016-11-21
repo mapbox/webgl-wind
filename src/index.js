@@ -1,17 +1,13 @@
-'use strict';
 
-var util = require('./util');
-var fs = require('fs');
+import * as util from './util';
 
-var drawVert = fs.readFileSync(require.resolve('./shaders/draw.vert.glsl'), 'utf8');
-var drawFrag = fs.readFileSync(require.resolve('./shaders/draw.frag.glsl'), 'utf8');
+import drawVert from './shaders/draw.vert.glsl';
+import drawFrag from './shaders/draw.frag.glsl';
 
-var quadVert = fs.readFileSync(require.resolve('./shaders/quad.vert.glsl'), 'utf8');
+import quadVert from './shaders/quad.vert.glsl';
 
-var screenFrag = fs.readFileSync(require.resolve('./shaders/screen.frag.glsl'), 'utf8');
-var updateFrag = fs.readFileSync(require.resolve('./shaders/update.frag.glsl'), 'utf8');
-
-module.exports = init;
+import screenFrag from './shaders/screen.frag.glsl';
+import updateFrag from './shaders/update.frag.glsl';
 
 var defaultRampColors = {
     0.0: '#3288bd',
@@ -24,7 +20,7 @@ var defaultRampColors = {
     1.0: '#d53e4f'
 };
 
-function init(gl, windData, windImage, particleStateTextureSize) {
+export function init(gl, windData, windImage, particleStateTextureSize) {
     var drawProgram = util.createProgram(gl, drawVert, drawFrag);
     var screenProgram = util.createProgram(gl, quadVert, screenFrag);
     var updateProgram = util.createProgram(gl, quadVert, updateFrag);

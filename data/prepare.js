@@ -1,5 +1,3 @@
-'use strict';
-
 var PNG = require('pngjs').PNG;
 var fs = require('fs');
 

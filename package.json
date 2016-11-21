@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "browserify -t brfs demo/index.js > demo/bundle.js",
-    "watch": "watchify -v -t brfs demo/index.js -o demo/bundle.js",
+    "build": "rollup -c rollup.config.js demo/index.js > demo/bundle.js",
+    "watch": "rollup -w -c rollup.config.js demo/index.js -o demo/bundle.js",
     "test": "eslint src/*.js demo/index.js data/prepare.js",
     "start": "st -nc -i index.html -d demo"
   },
@@ -13,15 +13,19 @@
   "author": "Vladimir Agafonkin",
   "license": "ISC",
   "devDependencies": {
-    "brfs": "^1.4.3",
-    "browserify": "^13.1.1",
     "eslint": "^3.10.2",
     "eslint-config-mourner": "^2.0.1",
     "pngjs": "^3.0.0",
-    "st": "^1.2.0",
-    "watchify": "^3.7.0"
+    "rollup": "^0.36.3",
+    "rollup-plugin-json": "^2.0.2",
+    "rollup-plugin-string": "^2.0.2",
+    "rollup-watch": "^2.5.0",
+    "st": "^1.2.0"
   },
   "eslintConfig": {
-    "extends": "mourner"
+    "extends": "mourner",
+    "parserOptions": {
+      "sourceType": "module"
+    }
   }
 }
