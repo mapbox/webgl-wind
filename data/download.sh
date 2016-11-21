@@ -1,6 +1,6 @@
 #!/bin/bash
 
-GFS_DATE="20161117"
+GFS_DATE="20161121"
 RES="1p00" # use "0p25" for hires
 BBOX="leftlon=0&rightlon=360&toplat=90&bottomlat=-90"
 LEVEL="lev_10_m_above_ground=on"
