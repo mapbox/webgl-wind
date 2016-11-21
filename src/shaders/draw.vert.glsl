@@ -3,14 +3,14 @@ precision mediump float;
 attribute float a_index;
 
 uniform sampler2D u_particles;
-uniform float u_particles_tex_size;
+uniform float u_particles_res;
 
 varying vec2 v_particle_pos;
 
 void main() {
-    float x = mod(a_index, u_particles_tex_size);
-    float y = floor(a_index / u_particles_tex_size);
-    vec4 color = texture2D(u_particles, vec2(x, y) / u_particles_tex_size);
+    float x = mod(a_index, u_particles_res);
+    float y = floor(a_index / u_particles_res);
+    vec4 color = texture2D(u_particles, vec2(x, y) / u_particles_res);
     v_particle_pos = vec2(color.r / 255.0 + color.g, color.b / 255.0 + color.a);
 
     gl_PointSize = 1.0;

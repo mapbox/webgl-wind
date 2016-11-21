@@ -20,12 +20,12 @@ var defaultRampColors = {
     1.0: '#d53e4f'
 };
 
-export function init(gl, windData, windImage, particleStateTextureSize) {
+export function init(gl, windData, windImage, particleStateResolution) {
     var drawProgram = util.createProgram(gl, drawVert, drawFrag);
     var screenProgram = util.createProgram(gl, quadVert, screenFrag);
     var updateProgram = util.createProgram(gl, quadVert, updateFrag);
 
-    var numParticles = particleStateTextureSize * particleStateTextureSize;
+    var numParticles = particleStateResolution * particleStateResolution;
     var particleState = new Uint8Array(numParticles * 4);
     for (var i = 0; i < particleState.length; i++) {
         particleState[i] = Math.floor(Math.random() * 256);
@@ -33,8 +33,8 @@ export function init(gl, windData, windImage, particleStateTextureSize) {
 
     var windTexture = util.createTexture(gl, gl.LINEAR, windImage);
 
-    var particleStateTexture0 = util.createTexture(gl, gl.NEAREST, particleState, particleStateTextureSize, particleStateTextureSize);
-    var particleStateTexture1 = util.createTexture(gl, gl.NEAREST, particleState, particleStateTextureSize, particleStateTextureSize);
+    var particleStateTexture0 = util.createTexture(gl, gl.NEAREST, particleState, particleStateResolution, particleStateResolution);
+    var particleStateTexture1 = util.createTexture(gl, gl.NEAREST, particleState, particleStateResolution, particleStateResolution);
 
     var emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
     var backgroundTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
@@ -71,7 +71,7 @@ export function init(gl, windData, windImage, particleStateTextureSize) {
         gl.disable(gl.BLEND);
 
         util.bindFramebuffer(gl, framebuffer, particleStateTexture1);
-        gl.viewport(0, 0, particleStateTextureSize, particleStateTextureSize);
+        gl.viewport(0, 0, particleStateResolution, particleStateResolution);
         updateParticles();
 
         var temp = backgroundTexture;
@@ -86,7 +86,7 @@ export function init(gl, windData, windImage, particleStateTextureSize) {
     function drawTexture(texture, opacity) {
         gl.useProgram(screenProgram.program);
 
-        util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
+        util.bindAttribute(gl, quadBuffer, updateProgram.a_pos, 2);
 
         util.bindTexture(gl, texture, 2);
         gl.uniform1i(screenProgram.u_screen, 2);
@@ -107,7 +107,7 @@ export function init(gl, windData, windImage, particleStateTextureSize) {
         gl.uniform1i(drawProgram.u_particles, 1);
         gl.uniform1i(drawProgram.u_color_ramp, 2);
 
-        gl.uniform1f(drawProgram.u_particles_tex_size, particleStateTextureSize);
+        gl.uniform1f(drawProgram.u_particles_res, particleStateResolution);
         gl.uniform2f(drawProgram.u_wind_min, windData.uMin, windData.vMin);
         gl.uniform2f(drawProgram.u_wind_max, windData.uMax, windData.vMax);
 
@@ -117,7 +117,7 @@ export function init(gl, windData, windImage, particleStateTextureSize) {
     function updateParticles() {
         gl.useProgram(updateProgram.program);
 
-        util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
+        util.bindAttribute(gl, quadBuffer, updateProgram.a_pos, 2);
 
         gl.uniform1i(updateProgram.u_wind, 0);
         gl.uniform1i(updateProgram.u_particles, 1);
