@@ -8,7 +8,6 @@ var drawFrag = fs.readFileSync(require.resolve('./shaders/draw.frag.glsl'), 'utf
 
 var quadVert = fs.readFileSync(require.resolve('./shaders/quad.vert.glsl'), 'utf8');
 
-var blendFrag = fs.readFileSync(require.resolve('./shaders/blend.frag.glsl'), 'utf8');
 var screenFrag = fs.readFileSync(require.resolve('./shaders/screen.frag.glsl'), 'utf8');
 var updateFrag = fs.readFileSync(require.resolve('./shaders/update.frag.glsl'), 'utf8');
 
@@ -27,7 +26,6 @@ var defaultRampColors = {
 
 function init(gl, windData, windImage, particleStateTextureSize) {
     var drawProgram = util.createProgram(gl, drawVert, drawFrag);
-    var blendProgram = util.createProgram(gl, quadVert, blendFrag);
     var screenProgram = util.createProgram(gl, quadVert, screenFrag);
     var updateProgram = util.createProgram(gl, quadVert, updateFrag);
 
@@ -74,7 +72,7 @@ function init(gl, windData, windImage, particleStateTextureSize) {
         gl.clearColor(0, 0, 0, 1);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
-        drawTexture(backgroundTexture, 0.5);
+        drawTexture(backgroundTexture, 0.99);
 
         // gl.enable(gl.BLEND);
         // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
