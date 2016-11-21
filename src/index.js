@@ -40,13 +40,10 @@ function init(gl, windData, windImage, particleStateTextureSize) {
     var particleStateTexture0 = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, particleState, particleStateTextureSize, particleStateTextureSize);
     var particleStateTexture1 = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, particleState, particleStateTextureSize, particleStateTextureSize);
 
-    var blackPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
-    for (i = 0; i < blackPixels.length; i += 4) {
-        blackPixels[i + 3] = 255;
-    }
-    var backgroundTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, blackPixels, gl.canvas.width, gl.canvas.height);
-    var particlesTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, blackPixels, gl.canvas.width, gl.canvas.height);
-    var screenTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, blackPixels, gl.canvas.width, gl.canvas.height);
+    var emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
+    var backgroundTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, emptyPixels, gl.canvas.width, gl.canvas.height);
+    var particlesTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, emptyPixels, gl.canvas.width, gl.canvas.height);
+    var screenTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, emptyPixels, gl.canvas.width, gl.canvas.height);
 
     var colorRamp = getColorRamp(defaultRampColors);
     var colorRampTexture = util.createTexture(gl, gl.LINEAR, gl.CLAMP_TO_EDGE, colorRamp, 16, 16);
@@ -69,18 +66,14 @@ function init(gl, windData, windImage, particleStateTextureSize) {
         util.bindFramebuffer(gl, framebuffer, screenTexture);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
-        drawTexture(backgroundTexture, 0.99);
-
-        // gl.enable(gl.BLEND);
-        // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
+        drawTexture(backgroundTexture, 0.996);
         drawParticles();
 
         util.bindFramebuffer(gl, null);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         drawTexture(screenTexture, 1.0);
+        gl.disable(gl.BLEND);
 
         var temp = backgroundTexture;
         backgroundTexture = screenTexture;
