@@ -8,7 +8,6 @@ var drawFrag = fs.readFileSync(require.resolve('./shaders/draw.frag.glsl'), 'utf
 
 var quadVert = fs.readFileSync(require.resolve('./shaders/quad.vert.glsl'), 'utf8');
 
-var blendFrag = fs.readFileSync(require.resolve('./shaders/blend.frag.glsl'), 'utf8');
 var screenFrag = fs.readFileSync(require.resolve('./shaders/screen.frag.glsl'), 'utf8');
 var updateFrag = fs.readFileSync(require.resolve('./shaders/update.frag.glsl'), 'utf8');
 
@@ -27,7 +26,6 @@ var defaultRampColors = {
 
 function init(gl, windData, windImage, particleStateTextureSize) {
     var drawProgram = util.createProgram(gl, drawVert, drawFrag);
-    var blendProgram = util.createProgram(gl, quadVert, blendFrag);
     var screenProgram = util.createProgram(gl, quadVert, screenFrag);
     var updateProgram = util.createProgram(gl, quadVert, updateFrag);
 
@@ -42,13 +40,9 @@ function init(gl, windData, windImage, particleStateTextureSize) {
     var particleStateTexture0 = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, particleState, particleStateTextureSize, particleStateTextureSize);
     var particleStateTexture1 = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, particleState, particleStateTextureSize, particleStateTextureSize);
 
-    var blackPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
-    for (i = 0; i < blackPixels.length; i += 4) {
-        blackPixels[i + 3] = 255;
-    }
-    var backgroundTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, blackPixels, gl.canvas.width, gl.canvas.height);
-    var particlesTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, blackPixels, gl.canvas.width, gl.canvas.height);
-    var screenTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, blackPixels, gl.canvas.width, gl.canvas.height);
+    var emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
+    var backgroundTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, emptyPixels, gl.canvas.width, gl.canvas.height);
+    var screenTexture = util.createTexture(gl, gl.NEAREST, gl.CLAMP_TO_EDGE, emptyPixels, gl.canvas.width, gl.canvas.height);
 
     var colorRamp = getColorRamp(defaultRampColors);
     var colorRampTexture = util.createTexture(gl, gl.LINEAR, gl.CLAMP_TO_EDGE, colorRamp, 16, 16);
@@ -68,34 +62,46 @@ function init(gl, windData, windImage, particleStateTextureSize) {
         util.bindTexture(gl, windTexture, 0);
         util.bindTexture(gl, particleStateTexture0, 1);
 
-        util.bindFramebuffer(gl, framebuffer, particlesTexture);
+        util.bindFramebuffer(gl, framebuffer, screenTexture);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+        drawTexture(backgroundTexture, 0.996);
         drawParticles();
 
-        util.bindFramebuffer(gl, framebuffer, screenTexture);
-        addTrails();
-
         util.bindFramebuffer(gl, null);
-        drawScreen();
-
-        var temp = backgroundTexture;
-        backgroundTexture = screenTexture;
-        screenTexture = temp;
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        drawTexture(screenTexture, 1.0);
+        gl.disable(gl.BLEND);
 
         util.bindFramebuffer(gl, framebuffer, particleStateTexture1);
         gl.viewport(0, 0, particleStateTextureSize, particleStateTextureSize);
         updateParticles();
+
+        var temp = backgroundTexture;
+        backgroundTexture = screenTexture;
+        screenTexture = temp;
 
         temp = particleStateTexture0;
         particleStateTexture0 = particleStateTexture1;
         particleStateTexture1 = temp;
     }
 
+    function drawTexture(texture, opacity) {
+        gl.useProgram(screenProgram.program);
+
+        util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
+
+        util.bindTexture(gl, texture, 2);
+        gl.uniform1i(screenProgram.u_screen, 2);
+
+        gl.uniform1f(screenProgram.u_opacity, opacity);
+
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
     function drawParticles() {
         gl.useProgram(drawProgram.program);
-
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
 
         util.bindAttribute(gl, particleIndexBuffer, drawProgram.a_index, 1);
 
@@ -112,33 +118,6 @@ function init(gl, windData, windImage, particleStateTextureSize) {
         gl.uniform2f(drawProgram.u_wind_max, windData.uMax, windData.vMax);
 
         gl.drawArrays(gl.POINTS, 0, numParticles);
-    }
-
-    function addTrails() {
-        gl.useProgram(blendProgram.program);
-
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
-        util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
-
-        util.bindTexture(gl, backgroundTexture, 2);
-        util.bindTexture(gl, particlesTexture, 3);
-
-        gl.uniform1i(blendProgram.u_background, 2);
-        gl.uniform1i(blendProgram.u_foreground, 3);
-
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-    }
-
-    function drawScreen() {
-        gl.useProgram(screenProgram.program);
-
-        util.bindAttribute(gl, quadBuffer, updateProgram.a_position, 2);
-        util.bindTexture(gl, screenTexture, 2);
-        gl.uniform1i(screenProgram.u_screen, 2);
-
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
 
     function updateParticles() {
