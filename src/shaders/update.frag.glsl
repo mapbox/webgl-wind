@@ -40,9 +40,8 @@ void main() {
 
     vec2 seed = (pos + v_tex_pos) * u_rand_seed;
 
-    pos = rand(seed) < 0.997 - speed_t * 0.01
-        ? fract(1.0 + pos + offset)
-        : vec2(rand(seed + 1.3), rand(seed + 2.1));
+    float drop = step(0.997 - speed_t * 0.01, rand(seed));
+    pos = mix(fract(1.0 + pos + offset), vec2(rand(seed + 1.3), rand(seed + 2.1)), drop);
 
     gl_FragColor = vec4(
         fract(pos * 255.0),
