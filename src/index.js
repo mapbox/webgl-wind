@@ -24,6 +24,11 @@ export class WindGL {
     constructor(gl) {
         this.gl = gl;
 
+        this.fadeOpacity = 0.999;
+        this.speedFactor = 0.2;
+        this.dropRate = 0.003;
+        this.dropRateBump = 0.01;
+
         this.drawProgram = util.createProgram(gl, drawVert, drawFrag);
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
         this.updateProgram = util.createProgram(gl, quadVert, updateFrag);
@@ -86,7 +91,7 @@ export class WindGL {
         util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-        this.drawTexture(this.backgroundTexture, 0.999);
+        this.drawTexture(this.backgroundTexture, this.fadeOpacity);
         this.drawParticles();
 
         util.bindFramebuffer(gl, null);
@@ -149,6 +154,9 @@ export class WindGL {
         gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
         gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
         gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+        gl.uniform1f(program.u_speed_factor, this.speedFactor);
+        gl.uniform1f(program.u_drop_rate, this.dropRate);
+        gl.uniform1f(program.u_drop_rate_bump, this.dropRateBump);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 

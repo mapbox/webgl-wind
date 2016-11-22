@@ -6,6 +6,9 @@ uniform vec2 u_wind_res;
 uniform vec2 u_wind_min;
 uniform vec2 u_wind_max;
 uniform float u_rand_seed;
+uniform float u_speed_factor;
+uniform float u_drop_rate;
+uniform float u_drop_rate_bump;
 
 varying vec2 v_tex_pos;
 
@@ -36,11 +39,12 @@ void main() {
     float speed_t = length(velocity) / length(u_wind_max);
 
     float distortion = max(0.1, cos(radians(pos.y * 180.0 - 90.0)));
-    vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.00002;
+    vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.0001 * u_speed_factor;
 
     vec2 seed = (pos + v_tex_pos) * u_rand_seed;
 
-    float drop = step(0.997 - speed_t * 0.01, rand(seed));
+    float dropRate = u_drop_rate + speed_t * u_drop_rate_bump;
+    float drop = step(1.0 - dropRate, rand(seed));
     pos = mix(fract(1.0 + pos + offset), vec2(rand(seed + 1.3), rand(seed + 2.1)), drop);
 
     gl_FragColor = vec4(

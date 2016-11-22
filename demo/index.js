@@ -24,7 +24,7 @@ getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastl
     canvas.height = canvas.clientHeight;
 
     var ctx = canvas.getContext('2d');
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
     ctx.lineJoin = ctx.lineCap = 'round';
     ctx.strokeStyle = 'white';
     ctx.beginPath();
