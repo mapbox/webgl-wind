@@ -1,7 +1,7 @@
 #!/bin/bash
 
 GFS_DATE="20161121"
-GFS_TIME="12"; # 00, 06, 12, 18
+GFS_TIME="18"; # 00, 06, 12, 18
 RES="1p00" # 0p25, 0p50 or 1p00
 BBOX="leftlon=0&rightlon=360&toplat=90&bottomlat=-90"
 LEVEL="lev_10_m_above_ground=on"
