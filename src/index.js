@@ -28,16 +28,22 @@ export class WindGL {
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
         this.updateProgram = util.createProgram(gl, quadVert, updateFrag);
 
+        this.quadBuffer = util.createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
+        this.framebuffer = gl.createFramebuffer();
+
+        this.setColorRamp(defaultRampColors);
+        this.resize();
+    }
+
+    resize() {
+        var gl = this.gl;
         var emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
         this.backgroundTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
         this.screenTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+    }
 
-        var colorRamp = getColorRamp(defaultRampColors);
-        this.colorRampTexture = util.createTexture(gl, gl.LINEAR, colorRamp, 16, 16);
-
-        this.quadBuffer = util.createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
-
-        this.framebuffer = gl.createFramebuffer();
+    setColorRamp(colors) {
+        this.colorRampTexture = util.createTexture(this.gl, this.gl.LINEAR, getColorRamp(colors), 16, 16);
     }
 
     setParticles(numParticles) {
