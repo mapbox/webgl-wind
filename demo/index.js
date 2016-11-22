@@ -37,8 +37,14 @@ var windFiles = {
     48: '2016112200'
 };
 
-var meta = {'2016-11-20+h': 0};
+var meta = {
+    '2016-11-20+h': 0,
+    'github.com/mapbox/webgl-wind': function () {
+        window.location = 'https://github.com/mapbox/webgl-wind';
+    }
+};
 gui.add(meta, '2016-11-20+h', 0, 48, 6).onFinishChange(updateWind);
+gui.add(meta, 'github.com/mapbox/webgl-wind');
 updateWind(0);
 
 getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastline.geojson', function (data) {
