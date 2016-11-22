@@ -20,7 +20,7 @@ function frame() {
 frame();
 
 var gui = new dat.GUI();
-gui.add(wind, 'numParticles', 1024, 262144);
+gui.add(wind, 'numParticles', 1024, 589824);
 gui.add(wind, 'fadeOpacity', 0.96, 0.999).step(0.001).updateDisplay();
 gui.add(wind, 'speedFactor', 0.05, 1.0);
 gui.add(wind, 'dropRate', 0, 0.1);
