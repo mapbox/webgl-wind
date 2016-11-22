@@ -5,9 +5,11 @@
 </head>
 <style>
 body { margin: 0; padding: 0; }
-#canvas { display: block; width: 100vw; height: 100vh; background: black; }
+#coastline { background: black; }
+#canvas, #coastline { display: block; width: 100vw; height: 100vh; position: absolute; }
 </style>
 <body>
+<canvas id="coastline"></canvas>
 <canvas id="canvas"></canvas>
 <script src="bundle.js"></script>
 </body>

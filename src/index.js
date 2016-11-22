@@ -77,6 +77,12 @@ export class WindGL {
         util.bindTexture(gl, this.windTexture, 0);
         util.bindTexture(gl, this.particleStateTexture0, 1);
 
+        this.drawScreen();
+        this.updateParticles();
+    }
+
+    drawScreen() {
+        var gl = this.gl;
         util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
@@ -89,17 +95,9 @@ export class WindGL {
         this.drawTexture(this.screenTexture, 1.0);
         gl.disable(gl.BLEND);
 
-        util.bindFramebuffer(gl, this.framebuffer, this.particleStateTexture1);
-        gl.viewport(0, 0, this.particleStateResolution, this.particleStateResolution);
-        this.updateParticles();
-
         var temp = this.backgroundTexture;
         this.backgroundTexture = this.screenTexture;
         this.screenTexture = temp;
-
-        temp = this.particleStateTexture0;
-        this.particleStateTexture0 = this.particleStateTexture1;
-        this.particleStateTexture1 = temp;
     }
 
     drawTexture(texture, opacity) {
@@ -136,6 +134,9 @@ export class WindGL {
 
     updateParticles() {
         var gl = this.gl;
+        util.bindFramebuffer(gl, this.framebuffer, this.particleStateTexture1);
+        gl.viewport(0, 0, this.particleStateResolution, this.particleStateResolution);
+
         var program = this.updateProgram;
         gl.useProgram(program.program);
 
@@ -150,6 +151,10 @@ export class WindGL {
         gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+        var temp = this.particleStateTexture0;
+        this.particleStateTexture0 = this.particleStateTexture1;
+        this.particleStateTexture1 = temp;
     }
 }
 
