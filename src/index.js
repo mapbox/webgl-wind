@@ -20,7 +20,7 @@ var defaultRampColors = {
     1.0: '#d53e4f'
 };
 
-export class WindGL {
+export default class WindGL {
     constructor(gl) {
         this.gl = gl;
 

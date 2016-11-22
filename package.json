@@ -4,10 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "rollup -c rollup.config.js demo/index.js > demo/bundle.js",
-    "watch": "rollup -w -c rollup.config.js demo/index.js -o demo/bundle.js",
+    "build": "rollup -c rollup.config.js src/index.js > dist/wind-gl.js",
+    "watch": "rollup -c rollup.config.js src/index.js -w -o dist/wind-gl.js",
     "test": "eslint src/*.js demo/index.js data/prepare.js",
-    "start": "st -nc -i index.html -d demo"
+    "start": "st -nc -i index.html"
   },
   "keywords": [],
   "author": "Vladimir Agafonkin",
@@ -27,7 +27,8 @@
       "sourceType": "module"
     },
     "globals": {
-      "dat": false
+      "dat": false,
+      "WindGL": false
     }
   }
 }
