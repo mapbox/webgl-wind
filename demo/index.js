@@ -40,7 +40,7 @@ var windFiles = {
 
 var meta = {
     '2016-11-20+h': 0,
-    'retina resolution': false,
+    'retina resolution': navigator.vendor && navigator.vendor.indexOf('Apple') === -1,
     'github.com/mapbox/webgl-wind': function () {
         window.location = 'https://github.com/mapbox/webgl-wind';
     }
@@ -51,6 +51,7 @@ if (pxRatio !== 1) {
 }
 gui.add(meta, 'github.com/mapbox/webgl-wind');
 updateWind(0);
+updateRetina();
 
 function updateRetina() {
     var ratio = meta['retina resolution'] ? pxRatio : 1;
