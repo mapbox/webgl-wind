@@ -1,4 +1,4 @@
-precision mediump float;
+precision highp float;
 
 uniform sampler2D u_particles;
 uniform sampler2D u_wind;
