@@ -1,8 +1,7 @@
-## WebGL Wind
+## WebGL Wind — [Demo](https://mapbox.github.io/webgl-wind/demo)
 
 A WebGL-powered visualization of wind power.
 Capable of rendering up to 1 million wind particles at 60fps.
-[Demo](https://mapbox.github.io/webgl-wind/demo)
 
 This project is heavily inspired by the work of:
 
