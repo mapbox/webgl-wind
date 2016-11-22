@@ -24,10 +24,10 @@ export class WindGL {
     constructor(gl) {
         this.gl = gl;
 
-        this.fadeOpacity = 0.996;
-        this.speedFactor = 0.25;
-        this.dropRate = 0.003;
-        this.dropRateBump = 0.01;
+        this.fadeOpacity = 0.996; // how fast the particle trails fade on each frame
+        this.speedFactor = 0.25; // how fast the particles move
+        this.dropRate = 0.003; // how often the particles move to a random place
+        this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
 
         this.drawProgram = util.createProgram(gl, drawVert, drawFrag);
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
@@ -43,24 +43,28 @@ export class WindGL {
     resize() {
         var gl = this.gl;
         var emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
+        // screen textures to hold the drawn screen for the previous and the current frame
         this.backgroundTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
         this.screenTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
     }
 
     setColorRamp(colors) {
+        // lookup texture for colorizing the particles according to their speed
         this.colorRampTexture = util.createTexture(this.gl, this.gl.LINEAR, getColorRamp(colors), 16, 16);
     }
 
     set numParticles(numParticles) {
         var gl = this.gl;
 
+        // we create a square texture where each pixel will hold a particle position encoded as RGBA
         var particleRes = this.particleStateResolution = Math.ceil(Math.sqrt(numParticles));
         this._numParticles = particleRes * particleRes;
 
         var particleState = new Uint8Array(this._numParticles * 4);
         for (var i = 0; i < particleState.length; i++) {
-            particleState[i] = Math.floor(Math.random() * 256);
+            particleState[i] = Math.floor(Math.random() * 256); // randomize the initial particle positions
         }
+        // textures to hold the particle state for the current and the next frame
         this.particleStateTexture0 = util.createTexture(gl, gl.NEAREST, particleState, particleRes, particleRes);
         this.particleStateTexture1 = util.createTexture(gl, gl.NEAREST, particleState, particleRes, particleRes);
 
@@ -91,6 +95,7 @@ export class WindGL {
 
     drawScreen() {
         var gl = this.gl;
+        // draw the screen into a temporary framebuffer to retain it as the background on the next frame
         util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
@@ -98,11 +103,13 @@ export class WindGL {
         this.drawParticles();
 
         util.bindFramebuffer(gl, null);
+        // enable blending to support drawing on top of an existing background (e.g. a map)
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         this.drawTexture(this.screenTexture, 1.0);
         gl.disable(gl.BLEND);
 
+        // save the current screen as the background for the next frame
         var temp = this.backgroundTexture;
         this.backgroundTexture = this.screenTexture;
         this.screenTexture = temp;
@@ -163,6 +170,7 @@ export class WindGL {
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
+        // swap the particle state textures so the new one becomes the current one
         var temp = this.particleStateTexture0;
         this.particleStateTexture0 = this.particleStateTexture1;
         this.particleStateTexture1 = temp;

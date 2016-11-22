@@ -61,13 +61,9 @@ getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastl
     for (var i = 0; i < data.features.length; i++) {
         var line = data.features[i].geometry.coordinates;
         for (var j = 0; j < line.length; j++) {
-            var x = (line[j][0] + 180) * canvas.width / 360;
-            var y = (-line[j][1] + 90) * canvas.height / 180;
-            if (j === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
+            ctx[j ? 'lineTo' : 'moveTo'](
+                (line[j][0] + 180) * canvas.width / 360,
+                (-line[j][1] + 90) * canvas.height / 180);
         }
     }
     ctx.stroke();
@@ -83,8 +79,6 @@ function updateWind(name) {
         };
     });
 }
-
-window.updateWind = updateWind;
 
 function getJSON(url, callback) {
     var xhr = new XMLHttpRequest();
