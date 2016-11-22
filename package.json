@@ -25,6 +25,9 @@
     "extends": "mourner",
     "parserOptions": {
       "sourceType": "module"
+    },
+    "globals": {
+      "dat": false
     }
   }
 }

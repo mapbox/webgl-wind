@@ -51,22 +51,25 @@ export class WindGL {
         this.colorRampTexture = util.createTexture(this.gl, this.gl.LINEAR, getColorRamp(colors), 16, 16);
     }
 
-    setParticles(numParticles) {
+    set numParticles(numParticles) {
         var gl = this.gl;
 
         var particleRes = this.particleStateResolution = Math.ceil(Math.sqrt(numParticles));
-        this.numParticles = particleRes * particleRes;
+        this._numParticles = particleRes * particleRes;
 
-        var particleState = new Uint8Array(this.numParticles * 4);
+        var particleState = new Uint8Array(this._numParticles * 4);
         for (var i = 0; i < particleState.length; i++) {
             particleState[i] = Math.floor(Math.random() * 256);
         }
         this.particleStateTexture0 = util.createTexture(gl, gl.NEAREST, particleState, particleRes, particleRes);
         this.particleStateTexture1 = util.createTexture(gl, gl.NEAREST, particleState, particleRes, particleRes);
 
-        var particleIndices = new Float32Array(this.numParticles);
-        for (i = 0; i < this.numParticles; i++) particleIndices[i] = i;
+        var particleIndices = new Float32Array(this._numParticles);
+        for (i = 0; i < this._numParticles; i++) particleIndices[i] = i;
         this.particleIndexBuffer = util.createBuffer(gl, particleIndices);
+    }
+    get numParticles() {
+        return this._numParticles;
     }
 
     setWind(windData, windImage) {
@@ -134,7 +137,7 @@ export class WindGL {
         gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
         gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
 
-        gl.drawArrays(gl.POINTS, 0, this.numParticles);
+        gl.drawArrays(gl.POINTS, 0, this._numParticles);
     }
 
     updateParticles() {

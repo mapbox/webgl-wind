@@ -8,7 +8,7 @@ canvas.height = canvas.clientHeight;
 var gl = canvas.getContext('webgl');
 
 var wind = window.wind = new WindGL(gl);
-wind.setParticles(65536);
+wind.numParticles = 65536;
 
 function frame() {
     if (wind.windData) {
@@ -17,6 +17,13 @@ function frame() {
     requestAnimationFrame(frame);
 }
 frame();
+
+var gui = new dat.GUI();
+gui.add(wind, 'numParticles', 1024, 262144);
+gui.add(wind, 'fadeOpacity', 0.96, 0.999).step(0.001).updateDisplay();
+gui.add(wind, 'speedFactor', 0.05, 1.0);
+gui.add(wind, 'dropRate', 0, 0.1);
+gui.add(wind, 'dropRateBump', 0, 0.2);
 
 getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastline.geojson', function (data) {
     var canvas = document.getElementById('coastline');
