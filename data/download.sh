@@ -1,7 +1,7 @@
 #!/bin/bash
 
-GFS_DATE="20161121"
-GFS_TIME="18"; # 00, 06, 12, 18
+GFS_DATE="20161120"
+GFS_TIME="00"; # 00, 06, 12, 18
 RES="1p00" # 0p25, 0p50 or 1p00
 BBOX="leftlon=0&rightlon=360&toplat=90&bottomlat=-90"
 LEVEL="lev_10_m_above_ground=on"
@@ -18,6 +18,6 @@ printf "{\"u\":`grib_dump -j utmp.grib`,\"v\":`grib_dump -j vtmp.grib`}" > tmp.j
 rm utmp.grib vtmp.grib
 
 DIR=`dirname $0`
-node ${DIR}/prepare.js ${1}
+node ${DIR}/prepare.js ${1}/${GFS_DATE}${GFS_TIME}
 
 rm tmp.json

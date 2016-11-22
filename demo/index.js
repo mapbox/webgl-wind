@@ -25,6 +25,22 @@ gui.add(wind, 'speedFactor', 0.05, 1.0);
 gui.add(wind, 'dropRate', 0, 0.1);
 gui.add(wind, 'dropRateBump', 0, 0.2);
 
+var windFiles = {
+    0: '2016112000',
+    6: '2016112006',
+    12: '2016112012',
+    18: '2016112018',
+    24: '2016112100',
+    30: '2016112106',
+    36: '2016112112',
+    42: '2016112118',
+    48: '2016112200'
+};
+
+var meta = {'2016-11-20+h': 0};
+gui.add(meta, '2016-11-20+h', 0, 48, 6).onFinishChange(updateWind);
+updateWind(0);
+
 getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastline.geojson', function (data) {
     var canvas = document.getElementById('coastline');
     canvas.width = canvas.clientWidth;
@@ -51,14 +67,13 @@ getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastl
     ctx.stroke();
 });
 
-updateWind('wind');
-
 function updateWind(name) {
-    getJSON(name + '.json', function (windData) {
+    getJSON('wind/' + windFiles[name] + '.json', function (windData) {
         var windImage = new Image();
-        windImage.src = name + '.png';
+        windData.image = windImage;
+        windImage.src = 'wind/' + windFiles[name] + '.png';
         windImage.onload = function () {
-            wind.setWind(windData, windImage);
+            wind.setWind(windData);
         };
     });
 }

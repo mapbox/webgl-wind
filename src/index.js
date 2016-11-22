@@ -24,8 +24,8 @@ export class WindGL {
     constructor(gl) {
         this.gl = gl;
 
-        this.fadeOpacity = 0.999;
-        this.speedFactor = 0.2;
+        this.fadeOpacity = 0.996;
+        this.speedFactor = 0.25;
         this.dropRate = 0.003;
         this.dropRateBump = 0.01;
 
@@ -72,9 +72,9 @@ export class WindGL {
         return this._numParticles;
     }
 
-    setWind(windData, windImage) {
+    setWind(windData) {
         this.windData = windData;
-        this.windTexture = util.createTexture(this.gl, this.gl.LINEAR, windImage);
+        this.windTexture = util.createTexture(this.gl, this.gl.LINEAR, windData.image);
     }
 
     draw() {
