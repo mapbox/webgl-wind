@@ -2,10 +2,11 @@ import {WindGL} from '../src/index';
 
 var canvas = document.getElementById('canvas');
 
+var pxRatio = Math.max(Math.floor(window.devicePixelRatio) || 1, 2);
 canvas.width = canvas.clientWidth;
 canvas.height = canvas.clientHeight;
 
-var gl = canvas.getContext('webgl');
+var gl = canvas.getContext('webgl', {antialiasing: false});
 
 var wind = window.wind = new WindGL(gl);
 wind.numParticles = 65536;
@@ -39,21 +40,32 @@ var windFiles = {
 
 var meta = {
     '2016-11-20+h': 0,
+    'retina resolution': false,
     'github.com/mapbox/webgl-wind': function () {
         window.location = 'https://github.com/mapbox/webgl-wind';
     }
 };
 gui.add(meta, '2016-11-20+h', 0, 48, 6).onFinishChange(updateWind);
+if (pxRatio !== 1) {
+    gui.add(meta, 'retina resolution').onFinishChange(updateRetina);
+}
 gui.add(meta, 'github.com/mapbox/webgl-wind');
 updateWind(0);
 
+function updateRetina() {
+    var ratio = meta['retina resolution'] ? pxRatio : 1;
+    canvas.width = canvas.clientWidth * ratio;
+    canvas.height = canvas.clientHeight * ratio;
+    wind.resize();
+}
+
 getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastline.geojson', function (data) {
     var canvas = document.getElementById('coastline');
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
+    canvas.width = canvas.clientWidth * pxRatio;
+    canvas.height = canvas.clientHeight * pxRatio;
 
     var ctx = canvas.getContext('2d');
-    ctx.lineWidth = 2;
+    ctx.lineWidth = pxRatio;
     ctx.lineJoin = ctx.lineCap = 'round';
     ctx.strokeStyle = 'white';
     ctx.beginPath();
