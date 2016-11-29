@@ -17,6 +17,7 @@
     "eslint-config-mourner": "^2.0.1",
     "pngjs": "^3.0.0",
     "rollup": "^0.36.3",
+    "rollup-plugin-buble": "^0.14.0",
     "rollup-plugin-string": "^2.0.2",
     "rollup-watch": "^2.5.0",
     "st": "^1.2.0"
@@ -29,6 +30,10 @@
     "globals": {
       "dat": false,
       "WindGL": false
+    },
+    "rules": {
+      "no-var": 2,
+      "prefer-const": 2
     }
   }
 }

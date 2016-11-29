@@ -9,7 +9,7 @@ import quadVert from './shaders/quad.vert.glsl';
 import screenFrag from './shaders/screen.frag.glsl';
 import updateFrag from './shaders/update.frag.glsl';
 
-var defaultRampColors = {
+const defaultRampColors = {
     0.0: '#3288bd',
     0.1: '#66c2a5',
     0.2: '#abdda4',
@@ -41,8 +41,8 @@ export default class WindGL {
     }
 
     resize() {
-        var gl = this.gl;
-        var emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
+        const gl = this.gl;
+        const emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
         // screen textures to hold the drawn screen for the previous and the current frame
         this.backgroundTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
         this.screenTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
@@ -54,22 +54,22 @@ export default class WindGL {
     }
 
     set numParticles(numParticles) {
-        var gl = this.gl;
+        const gl = this.gl;
 
         // we create a square texture where each pixel will hold a particle position encoded as RGBA
-        var particleRes = this.particleStateResolution = Math.ceil(Math.sqrt(numParticles));
+        const particleRes = this.particleStateResolution = Math.ceil(Math.sqrt(numParticles));
         this._numParticles = particleRes * particleRes;
 
-        var particleState = new Uint8Array(this._numParticles * 4);
-        for (var i = 0; i < particleState.length; i++) {
+        const particleState = new Uint8Array(this._numParticles * 4);
+        for (let i = 0; i < particleState.length; i++) {
             particleState[i] = Math.floor(Math.random() * 256); // randomize the initial particle positions
         }
         // textures to hold the particle state for the current and the next frame
         this.particleStateTexture0 = util.createTexture(gl, gl.NEAREST, particleState, particleRes, particleRes);
         this.particleStateTexture1 = util.createTexture(gl, gl.NEAREST, particleState, particleRes, particleRes);
 
-        var particleIndices = new Float32Array(this._numParticles);
-        for (i = 0; i < this._numParticles; i++) particleIndices[i] = i;
+        const particleIndices = new Float32Array(this._numParticles);
+        for (let i = 0; i < this._numParticles; i++) particleIndices[i] = i;
         this.particleIndexBuffer = util.createBuffer(gl, particleIndices);
     }
     get numParticles() {
@@ -82,7 +82,7 @@ export default class WindGL {
     }
 
     draw() {
-        var gl = this.gl;
+        const gl = this.gl;
         gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.STENCIL_TEST);
 
@@ -94,7 +94,7 @@ export default class WindGL {
     }
 
     drawScreen() {
-        var gl = this.gl;
+        const gl = this.gl;
         // draw the screen into a temporary framebuffer to retain it as the background on the next frame
         util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -110,14 +110,14 @@ export default class WindGL {
         gl.disable(gl.BLEND);
 
         // save the current screen as the background for the next frame
-        var temp = this.backgroundTexture;
+        const temp = this.backgroundTexture;
         this.backgroundTexture = this.screenTexture;
         this.screenTexture = temp;
     }
 
     drawTexture(texture, opacity) {
-        var gl = this.gl;
-        var program = this.screenProgram;
+        const gl = this.gl;
+        const program = this.screenProgram;
         gl.useProgram(program.program);
 
         util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
@@ -129,8 +129,8 @@ export default class WindGL {
     }
 
     drawParticles() {
-        var gl = this.gl;
-        var program = this.drawProgram;
+        const gl = this.gl;
+        const program = this.drawProgram;
         gl.useProgram(program.program);
 
         util.bindAttribute(gl, this.particleIndexBuffer, program.a_index, 1);
@@ -148,11 +148,11 @@ export default class WindGL {
     }
 
     updateParticles() {
-        var gl = this.gl;
+        const gl = this.gl;
         util.bindFramebuffer(gl, this.framebuffer, this.particleStateTexture1);
         gl.viewport(0, 0, this.particleStateResolution, this.particleStateResolution);
 
-        var program = this.updateProgram;
+        const program = this.updateProgram;
         gl.useProgram(program.program);
 
         util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
@@ -171,21 +171,21 @@ export default class WindGL {
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
         // swap the particle state textures so the new one becomes the current one
-        var temp = this.particleStateTexture0;
+        const temp = this.particleStateTexture0;
         this.particleStateTexture0 = this.particleStateTexture1;
         this.particleStateTexture1 = temp;
     }
 }
 
 function getColorRamp(colors) {
-    var canvas = document.createElement('canvas');
-    var ctx = canvas.getContext('2d');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
 
     canvas.width = 256;
     canvas.height = 1;
 
-    var gradient = ctx.createLinearGradient(0, 0, 256, 0);
-    for (var stop in colors) {
+    const gradient = ctx.createLinearGradient(0, 0, 256, 0);
+    for (const stop in colors) {
         gradient.addColorStop(+stop, colors[stop]);
     }
 

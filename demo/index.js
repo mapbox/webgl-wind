@@ -1,12 +1,12 @@
-var canvas = document.getElementById('canvas');
+const canvas = document.getElementById('canvas');
 
-var pxRatio = Math.max(Math.floor(window.devicePixelRatio) || 1, 2);
+const pxRatio = Math.max(Math.floor(window.devicePixelRatio) || 1, 2);
 canvas.width = canvas.clientWidth;
 canvas.height = canvas.clientHeight;
 
-var gl = canvas.getContext('webgl', {antialiasing: false});
+const gl = canvas.getContext('webgl', {antialiasing: false});
 
-var wind = window.wind = new WindGL(gl);
+const wind = window.wind = new WindGL(gl);
 wind.numParticles = 65536;
 
 function frame() {
@@ -17,14 +17,14 @@ function frame() {
 }
 frame();
 
-var gui = new dat.GUI();
+const gui = new dat.GUI();
 gui.add(wind, 'numParticles', 1024, 589824);
 gui.add(wind, 'fadeOpacity', 0.96, 0.999).step(0.001).updateDisplay();
 gui.add(wind, 'speedFactor', 0.05, 1.0);
 gui.add(wind, 'dropRate', 0, 0.1);
 gui.add(wind, 'dropRateBump', 0, 0.2);
 
-var windFiles = {
+const windFiles = {
     0: '2016112000',
     6: '2016112006',
     12: '2016112012',
@@ -36,7 +36,7 @@ var windFiles = {
     48: '2016112200'
 };
 
-var meta = {
+const meta = {
     '2016-11-20+h': 0,
     'retina resolution': navigator.vendor && navigator.vendor.indexOf('Apple') === -1,
     'github.com/mapbox/webgl-wind': function () {
@@ -52,26 +52,26 @@ updateWind(0);
 updateRetina();
 
 function updateRetina() {
-    var ratio = meta['retina resolution'] ? pxRatio : 1;
+    const ratio = meta['retina resolution'] ? pxRatio : 1;
     canvas.width = canvas.clientWidth * ratio;
     canvas.height = canvas.clientHeight * ratio;
     wind.resize();
 }
 
 getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastline.geojson', function (data) {
-    var canvas = document.getElementById('coastline');
+    const canvas = document.getElementById('coastline');
     canvas.width = canvas.clientWidth * pxRatio;
     canvas.height = canvas.clientHeight * pxRatio;
 
-    var ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d');
     ctx.lineWidth = pxRatio;
     ctx.lineJoin = ctx.lineCap = 'round';
     ctx.strokeStyle = 'white';
     ctx.beginPath();
 
-    for (var i = 0; i < data.features.length; i++) {
-        var line = data.features[i].geometry.coordinates;
-        for (var j = 0; j < line.length; j++) {
+    for (let i = 0; i < data.features.length; i++) {
+        const line = data.features[i].geometry.coordinates;
+        for (let j = 0; j < line.length; j++) {
             ctx[j ? 'lineTo' : 'moveTo'](
                 (line[j][0] + 180) * canvas.width / 360,
                 (-line[j][1] + 90) * canvas.height / 180);
@@ -82,7 +82,7 @@ getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastl
 
 function updateWind(name) {
     getJSON('wind/' + windFiles[name] + '.json', function (windData) {
-        var windImage = new Image();
+        const windImage = new Image();
         windData.image = windImage;
         windImage.src = 'wind/' + windFiles[name] + '.png';
         windImage.onload = function () {
@@ -92,7 +92,7 @@ function updateWind(name) {
 }
 
 function getJSON(url, callback) {
-    var xhr = new XMLHttpRequest();
+    const xhr = new XMLHttpRequest();
     xhr.responseType = 'json';
     xhr.open('get', url, true);
     xhr.onload = function () {

@@ -1,6 +1,6 @@
 
 function createShader(gl, type, source) {
-    var shader = gl.createShader(type);
+    const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
 
     gl.compileShader(shader);
@@ -12,10 +12,10 @@ function createShader(gl, type, source) {
 }
 
 export function createProgram(gl, vertexSource, fragmentSource) {
-    var program = gl.createProgram();
+    const program = gl.createProgram();
 
-    var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
-    var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
 
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
@@ -25,16 +25,16 @@ export function createProgram(gl, vertexSource, fragmentSource) {
         throw new Error(gl.getProgramInfoLog(program));
     }
 
-    var wrapper = {program: program};
+    const wrapper = {program: program};
 
-    var numAttributes = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
-    for (var i = 0; i < numAttributes; i++) {
-        var attribute = gl.getActiveAttrib(program, i);
+    const numAttributes = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
+    for (let i = 0; i < numAttributes; i++) {
+        const attribute = gl.getActiveAttrib(program, i);
         wrapper[attribute.name] = gl.getAttribLocation(program, attribute.name);
     }
-    var numUniforms = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
-    for (i = 0; i < numUniforms; i++) {
-        var uniform = gl.getActiveUniform(program, i);
+    const numUniforms = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < numUniforms; i++) {
+        const uniform = gl.getActiveUniform(program, i);
         wrapper[uniform.name] = gl.getUniformLocation(program, uniform.name);
     }
 
@@ -42,7 +42,7 @@ export function createProgram(gl, vertexSource, fragmentSource) {
 }
 
 export function createTexture(gl, filter, data, width, height) {
-    var texture = gl.createTexture();
+    const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -63,7 +63,7 @@ export function bindTexture(gl, texture, unit) {
 }
 
 export function createBuffer(gl, data) {
-    var buffer = gl.createBuffer();
+    const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     return buffer;

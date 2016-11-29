@@ -38,8 +38,8 @@ function createProgram(gl, vertexSource, fragmentSource) {
         wrapper[attribute.name] = gl.getAttribLocation(program, attribute.name);
     }
     var numUniforms = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
-    for (i = 0; i < numUniforms; i++) {
-        var uniform = gl.getActiveUniform(program, i);
+    for (var i$1 = 0; i$1 < numUniforms; i$1++) {
+        var uniform = gl.getActiveUniform(program, i$1);
         wrapper[uniform.name] = gl.getUniformLocation(program, uniform.name);
     }
 
@@ -108,162 +108,164 @@ var defaultRampColors = {
     1.0: '#d53e4f'
 };
 
-class WindGL {
-    constructor(gl) {
-        this.gl = gl;
+var WindGL = function WindGL(gl) {
+    this.gl = gl;
 
-        this.fadeOpacity = 0.996; // how fast the particle trails fade on each frame
-        this.speedFactor = 0.25; // how fast the particles move
-        this.dropRate = 0.003; // how often the particles move to a random place
-        this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
+    this.fadeOpacity = 0.996; // how fast the particle trails fade on each frame
+    this.speedFactor = 0.25; // how fast the particles move
+    this.dropRate = 0.003; // how often the particles move to a random place
+    this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
 
-        this.drawProgram = createProgram(gl, drawVert, drawFrag);
-        this.screenProgram = createProgram(gl, quadVert, screenFrag);
-        this.updateProgram = createProgram(gl, quadVert, updateFrag);
+    this.drawProgram = createProgram(gl, drawVert, drawFrag);
+    this.screenProgram = createProgram(gl, quadVert, screenFrag);
+    this.updateProgram = createProgram(gl, quadVert, updateFrag);
 
-        this.quadBuffer = createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
-        this.framebuffer = gl.createFramebuffer();
+    this.quadBuffer = createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
+    this.framebuffer = gl.createFramebuffer();
 
-        this.setColorRamp(defaultRampColors);
-        this.resize();
+    this.setColorRamp(defaultRampColors);
+    this.resize();
+};
+
+var prototypeAccessors = { numParticles: {} };
+
+WindGL.prototype.resize = function resize () {
+    var gl = this.gl;
+    var emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
+    // screen textures to hold the drawn screen for the previous and the current frame
+    this.backgroundTexture = createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+    this.screenTexture = createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+};
+
+WindGL.prototype.setColorRamp = function setColorRamp (colors) {
+    // lookup texture for colorizing the particles according to their speed
+    this.colorRampTexture = createTexture(this.gl, this.gl.LINEAR, getColorRamp(colors), 16, 16);
+};
+
+prototypeAccessors.numParticles.set = function (numParticles) {
+    var gl = this.gl;
+
+    // we create a square texture where each pixel will hold a particle position encoded as RGBA
+    var particleRes = this.particleStateResolution = Math.ceil(Math.sqrt(numParticles));
+    this._numParticles = particleRes * particleRes;
+
+    var particleState = new Uint8Array(this._numParticles * 4);
+    for (var i = 0; i < particleState.length; i++) {
+        particleState[i] = Math.floor(Math.random() * 256); // randomize the initial particle positions
     }
+    // textures to hold the particle state for the current and the next frame
+    this.particleStateTexture0 = createTexture(gl, gl.NEAREST, particleState, particleRes, particleRes);
+    this.particleStateTexture1 = createTexture(gl, gl.NEAREST, particleState, particleRes, particleRes);
 
-    resize() {
-        var gl = this.gl;
-        var emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
-        // screen textures to hold the drawn screen for the previous and the current frame
-        this.backgroundTexture = createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
-        this.screenTexture = createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
-    }
+    var particleIndices = new Float32Array(this._numParticles);
+    for (var i$1 = 0; i$1 < this._numParticles; i$1++) { particleIndices[i$1] = i$1; }
+    this.particleIndexBuffer = createBuffer(gl, particleIndices);
+};
+prototypeAccessors.numParticles.get = function () {
+    return this._numParticles;
+};
 
-    setColorRamp(colors) {
-        // lookup texture for colorizing the particles according to their speed
-        this.colorRampTexture = createTexture(this.gl, this.gl.LINEAR, getColorRamp(colors), 16, 16);
-    }
+WindGL.prototype.setWind = function setWind (windData) {
+    this.windData = windData;
+    this.windTexture = createTexture(this.gl, this.gl.LINEAR, windData.image);
+};
 
-    set numParticles(numParticles) {
-        var gl = this.gl;
+WindGL.prototype.draw = function draw () {
+    var gl = this.gl;
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.STENCIL_TEST);
 
-        // we create a square texture where each pixel will hold a particle position encoded as RGBA
-        var particleRes = this.particleStateResolution = Math.ceil(Math.sqrt(numParticles));
-        this._numParticles = particleRes * particleRes;
+    bindTexture(gl, this.windTexture, 0);
+    bindTexture(gl, this.particleStateTexture0, 1);
 
-        var particleState = new Uint8Array(this._numParticles * 4);
-        for (var i = 0; i < particleState.length; i++) {
-            particleState[i] = Math.floor(Math.random() * 256); // randomize the initial particle positions
-        }
-        // textures to hold the particle state for the current and the next frame
-        this.particleStateTexture0 = createTexture(gl, gl.NEAREST, particleState, particleRes, particleRes);
-        this.particleStateTexture1 = createTexture(gl, gl.NEAREST, particleState, particleRes, particleRes);
+    this.drawScreen();
+    this.updateParticles();
+};
 
-        var particleIndices = new Float32Array(this._numParticles);
-        for (i = 0; i < this._numParticles; i++) particleIndices[i] = i;
-        this.particleIndexBuffer = createBuffer(gl, particleIndices);
-    }
-    get numParticles() {
-        return this._numParticles;
-    }
+WindGL.prototype.drawScreen = function drawScreen () {
+    var gl = this.gl;
+    // draw the screen into a temporary framebuffer to retain it as the background on the next frame
+    bindFramebuffer(gl, this.framebuffer, this.screenTexture);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-    setWind(windData) {
-        this.windData = windData;
-        this.windTexture = createTexture(this.gl, this.gl.LINEAR, windData.image);
-    }
+    this.drawTexture(this.backgroundTexture, this.fadeOpacity);
+    this.drawParticles();
 
-    draw() {
-        var gl = this.gl;
-        gl.disable(gl.DEPTH_TEST);
-        gl.disable(gl.STENCIL_TEST);
+    bindFramebuffer(gl, null);
+    // enable blending to support drawing on top of an existing background (e.g. a map)
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    this.drawTexture(this.screenTexture, 1.0);
+    gl.disable(gl.BLEND);
 
-        bindTexture(gl, this.windTexture, 0);
-        bindTexture(gl, this.particleStateTexture0, 1);
+    // save the current screen as the background for the next frame
+    var temp = this.backgroundTexture;
+    this.backgroundTexture = this.screenTexture;
+    this.screenTexture = temp;
+};
 
-        this.drawScreen();
-        this.updateParticles();
-    }
+WindGL.prototype.drawTexture = function drawTexture (texture, opacity) {
+    var gl = this.gl;
+    var program = this.screenProgram;
+    gl.useProgram(program.program);
 
-    drawScreen() {
-        var gl = this.gl;
-        // draw the screen into a temporary framebuffer to retain it as the background on the next frame
-        bindFramebuffer(gl, this.framebuffer, this.screenTexture);
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
+    bindTexture(gl, texture, 2);
+    gl.uniform1i(program.u_screen, 2);
+    gl.uniform1f(program.u_opacity, opacity);
 
-        this.drawTexture(this.backgroundTexture, this.fadeOpacity);
-        this.drawParticles();
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+};
 
-        bindFramebuffer(gl, null);
-        // enable blending to support drawing on top of an existing background (e.g. a map)
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        this.drawTexture(this.screenTexture, 1.0);
-        gl.disable(gl.BLEND);
+WindGL.prototype.drawParticles = function drawParticles () {
+    var gl = this.gl;
+    var program = this.drawProgram;
+    gl.useProgram(program.program);
 
-        // save the current screen as the background for the next frame
-        var temp = this.backgroundTexture;
-        this.backgroundTexture = this.screenTexture;
-        this.screenTexture = temp;
-    }
+    bindAttribute(gl, this.particleIndexBuffer, program.a_index, 1);
+    bindTexture(gl, this.colorRampTexture, 2);
 
-    drawTexture(texture, opacity) {
-        var gl = this.gl;
-        var program = this.screenProgram;
-        gl.useProgram(program.program);
+    gl.uniform1i(program.u_wind, 0);
+    gl.uniform1i(program.u_particles, 1);
+    gl.uniform1i(program.u_color_ramp, 2);
 
-        bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
-        bindTexture(gl, texture, 2);
-        gl.uniform1i(program.u_screen, 2);
-        gl.uniform1f(program.u_opacity, opacity);
+    gl.uniform1f(program.u_particles_res, this.particleStateResolution);
+    gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
+    gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
 
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-    }
+    gl.drawArrays(gl.POINTS, 0, this._numParticles);
+};
 
-    drawParticles() {
-        var gl = this.gl;
-        var program = this.drawProgram;
-        gl.useProgram(program.program);
+WindGL.prototype.updateParticles = function updateParticles () {
+    var gl = this.gl;
+    bindFramebuffer(gl, this.framebuffer, this.particleStateTexture1);
+    gl.viewport(0, 0, this.particleStateResolution, this.particleStateResolution);
 
-        bindAttribute(gl, this.particleIndexBuffer, program.a_index, 1);
-        bindTexture(gl, this.colorRampTexture, 2);
+    var program = this.updateProgram;
+    gl.useProgram(program.program);
 
-        gl.uniform1i(program.u_wind, 0);
-        gl.uniform1i(program.u_particles, 1);
-        gl.uniform1i(program.u_color_ramp, 2);
+    bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
 
-        gl.uniform1f(program.u_particles_res, this.particleStateResolution);
-        gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
-        gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+    gl.uniform1i(program.u_wind, 0);
+    gl.uniform1i(program.u_particles, 1);
 
-        gl.drawArrays(gl.POINTS, 0, this._numParticles);
-    }
+    gl.uniform1f(program.u_rand_seed, Math.random());
+    gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
+    gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
+    gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+    gl.uniform1f(program.u_speed_factor, this.speedFactor);
+    gl.uniform1f(program.u_drop_rate, this.dropRate);
+    gl.uniform1f(program.u_drop_rate_bump, this.dropRateBump);
 
-    updateParticles() {
-        var gl = this.gl;
-        bindFramebuffer(gl, this.framebuffer, this.particleStateTexture1);
-        gl.viewport(0, 0, this.particleStateResolution, this.particleStateResolution);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-        var program = this.updateProgram;
-        gl.useProgram(program.program);
+    // swap the particle state textures so the new one becomes the current one
+    var temp = this.particleStateTexture0;
+    this.particleStateTexture0 = this.particleStateTexture1;
+    this.particleStateTexture1 = temp;
+};
 
-        bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
-
-        gl.uniform1i(program.u_wind, 0);
-        gl.uniform1i(program.u_particles, 1);
-
-        gl.uniform1f(program.u_rand_seed, Math.random());
-        gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
-        gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
-        gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
-        gl.uniform1f(program.u_speed_factor, this.speedFactor);
-        gl.uniform1f(program.u_drop_rate, this.dropRate);
-        gl.uniform1f(program.u_drop_rate_bump, this.dropRateBump);
-
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-        // swap the particle state textures so the new one becomes the current one
-        var temp = this.particleStateTexture0;
-        this.particleStateTexture0 = this.particleStateTexture1;
-        this.particleStateTexture1 = temp;
-    }
-}
+Object.defineProperties( WindGL.prototype, prototypeAccessors );
 
 function getColorRamp(colors) {
     var canvas = document.createElement('canvas');
