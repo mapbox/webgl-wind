@@ -42,16 +42,23 @@ void main() {
     float speed_t = length(velocity) / length(u_wind_max);
 
     // take EPSG:4236 distortion into account for calculating where the particle moved
-    float distortion = max(0.1, cos(radians(pos.y * 180.0 - 90.0)));
+    float distortion = cos(radians(pos.y * 180.0 - 90.0));
     vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.0001 * u_speed_factor;
+
+    // update particle position, wrapping around the date line
+    pos = fract(1.0 + pos + offset);
 
     // a random seed to use for the particle drop
     vec2 seed = (pos + v_tex_pos) * u_rand_seed;
 
     // drop rate is a chance a particle will restart at random position, to avoid degeneration
-    float dropRate = u_drop_rate + speed_t * u_drop_rate_bump;
-    float drop = step(1.0 - dropRate, rand(seed));
-    pos = mix(fract(1.0 + pos + offset), vec2(rand(seed + 1.3), rand(seed + 2.1)), drop);
+    float drop_rate = u_drop_rate + speed_t * u_drop_rate_bump;
+    float drop = step(1.0 - drop_rate, rand(seed));
+
+    vec2 random_pos = vec2(
+        rand(seed + 1.3),
+        rand(seed + 2.1));
+    pos = mix(pos, random_pos, drop);
 
     // encode the new particle position back into RGBA
     gl_FragColor = vec4(
