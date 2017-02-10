@@ -17,6 +17,11 @@ void main() {
         color.r / 255.0 + color.b,
         color.g / 255.0 + color.a);
 
+    // project the position with mercator projection
+    float s = sin(radians(90.0 - v_particle_pos.y * 180.0));
+    float y = degrees(log((1.0 + s) / (1.0 - s))) / 360.0;
+    float x = 2.0 * v_particle_pos.x - 1.0;
+
     gl_PointSize = 1.0;
-    gl_Position = vec4(2.0 * v_particle_pos.x - 1.0, 1.0 - 2.0 * v_particle_pos.y, 0, 1);
+    gl_Position = vec4(x, y, 0, 1);
 }
