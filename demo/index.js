@@ -1,4 +1,5 @@
-const canvas = document.getElementById('canvas');
+// using var to work around a WebKit bug
+var canvas = document.getElementById('canvas'); // eslint-disable-line
 
 const pxRatio = Math.max(Math.floor(window.devicePixelRatio) || 1, 2);
 canvas.width = canvas.clientWidth;
@@ -38,7 +39,7 @@ const windFiles = {
 
 const meta = {
     '2016-11-20+h': 0,
-    'retina resolution': navigator.vendor && navigator.vendor.indexOf('Apple') === -1,
+    'retina resolution': true,
     'github.com/mapbox/webgl-wind': function () {
         window.location = 'https://github.com/mapbox/webgl-wind';
     }
