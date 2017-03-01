@@ -46,7 +46,7 @@ const meta = {
     }
 };
 
-gui.add(meta, 'zoom', 0, 2, 0.01).onChange(updateZoom);
+gui.add(meta, 'zoom', 0, 8, 0.01).onChange(updateZoom);
 gui.add(meta, '2016-11-20+h', 0, 48, 6).onFinishChange(updateWind);
 
 if (pxRatio !== 1) {
@@ -117,6 +117,7 @@ function updateWind(name) {
         windImage.src = 'wind/' + windFiles[name] + '.png';
         windImage.onload = function () {
             wind.setWind(windData);
+            wind.resize();
         };
     });
 }

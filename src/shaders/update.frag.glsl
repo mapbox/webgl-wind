@@ -62,8 +62,8 @@ void main() {
         step(pos.y, u_bbox.w); // also drop the particle if it went off the current bbox
 
     vec2 random_pos = vec2(
-        rand(seed + 1.3),
-        rand(seed + 2.1));
+        u_bbox.x + rand(seed + 1.3) * (u_bbox.z - u_bbox.x),
+        u_bbox.y + rand(seed + 2.1) * (u_bbox.w - u_bbox.y));
     pos = mix(pos, random_pos, 1.0 - retain);
 
     // encode the new particle position back into RGBA
