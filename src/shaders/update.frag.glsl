@@ -44,7 +44,7 @@ void main() {
 
     // take EPSG:4236 distortion into account for calculating where the particle moved
     float distortion = cos(radians(pos.y * 180.0 - 90.0));
-    vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.0001 * u_speed_factor;
+    vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.0001 * u_speed_factor * (u_bbox.z - u_bbox.x);
 
     // update particle position, wrapping around the date line
     pos = fract(1.0 + pos + offset);
@@ -58,12 +58,12 @@ void main() {
     float retain = step(drop_rate, rand(seed)) *
         step(u_bbox.x, pos.x) *
         step(pos.x, u_bbox.z) *
-        step(u_bbox.y, pos.y) *
-        step(pos.y, u_bbox.w); // also drop the particle if it went off the current bbox
+        step(u_bbox.y, 1.0 - pos.y) *
+        step(1.0 - pos.y, u_bbox.w); // also drop the particle if it went off the current bbox
 
     vec2 random_pos = vec2(
         u_bbox.x + rand(seed + 1.3) * (u_bbox.z - u_bbox.x),
-        u_bbox.y + rand(seed + 2.1) * (u_bbox.w - u_bbox.y));
+        1.0 - (u_bbox.y + rand(seed + 2.1) * (u_bbox.w - u_bbox.y)));
     pos = mix(pos, random_pos, 1.0 - retain);
 
     // encode the new particle position back into RGBA
