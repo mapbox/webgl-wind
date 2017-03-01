@@ -60,14 +60,15 @@ updateRetina();
 
 function updateZoom() {
     const halfSize = 0.5 / Math.pow(2, meta.zoom);
-    wind.bbox = [
+    wind.setBBox([
         0.5 - halfSize,
         0.5 - halfSize,
         0.5 + halfSize,
         0.5 + halfSize
-    ];
+    ]);
     drawCoastline();
     wind.resize();
+    wind.numParticles = wind.numParticles;
 }
 
 function updateRetina() {
@@ -100,13 +101,13 @@ function drawCoastline() {
         for (let j = 0; j < line.length; j++) {
             const x = (line[j][0] + 180) / 360;
             const y = latY(line[j][1]);
+            const bbox = wind.mercBBox;
             ctx[j ? 'lineTo' : 'moveTo'](
-                (x - wind.bbox[0]) / (wind.bbox[2] - wind.bbox[0]) * canvas.width,
-                (y - (1 - wind.bbox[3])) / (wind.bbox[3] - wind.bbox[1]) * canvas.height);
+                (x - bbox[0]) / (bbox[2] - bbox[0]) * canvas.width,
+                (y - (1 - bbox[3])) / (bbox[3] - bbox[1]) * canvas.height);
         }
     }
     ctx.stroke();
-
 }
 
 function updateWind(name) {

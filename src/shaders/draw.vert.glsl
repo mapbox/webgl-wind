@@ -5,7 +5,7 @@ attribute float a_index;
 uniform sampler2D u_particles;
 uniform float u_particles_res;
 
-uniform vec4 u_bbox;
+uniform vec4 u_mercator_bbox;
 
 varying vec2 v_particle_pos;
 
@@ -24,8 +24,8 @@ void main() {
     float y = (degrees(log((1.0 + s) / (1.0 - s))) / 360.0 + 1.0) / 2.0;
     float x = v_particle_pos.x;
 
-    vec2 min = u_bbox.xy;
-    vec2 max = u_bbox.zw;
+    vec2 min = u_mercator_bbox.xy;
+    vec2 max = u_mercator_bbox.zw;
 
     gl_PointSize = 1.0;
     gl_Position = vec4(

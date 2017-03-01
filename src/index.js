@@ -28,7 +28,6 @@ export default class WindGL {
         this.speedFactor = 0.25; // how fast the particles move
         this.dropRate = 0.003; // how often the particles move to a random place
         this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
-        this.bbox = [0, 0, 1, 1]; // mercator bbox of the wind view
 
         this.drawProgram = util.createProgram(gl, drawVert, drawFrag);
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
@@ -38,6 +37,7 @@ export default class WindGL {
         this.framebuffer = gl.createFramebuffer();
 
         this.setColorRamp(defaultRampColors);
+        this.setBBox([0, 0, 1, 1]);
         this.resize();
     }
 
@@ -80,6 +80,11 @@ export default class WindGL {
     setWind(windData) {
         this.windData = windData;
         this.windTexture = util.createTexture(this.gl, this.gl.LINEAR, windData.image);
+    }
+
+    setBBox(bbox) {
+        this.bbox = bbox;
+        this.mercBBox = [bbox[0], mercY(bbox[1]), bbox[2], mercY(bbox[3])];
     }
 
     draw() {
@@ -144,8 +149,7 @@ export default class WindGL {
         gl.uniform1f(program.u_particles_res, this.particleStateResolution);
         gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
         gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
-
-        gl.uniform4fv(program.u_bbox, this.bbox);
+        gl.uniform4fv(program.u_mercator_bbox, this.mercBBox);
 
         gl.drawArrays(gl.POINTS, 0, this._numParticles);
     }
@@ -170,6 +174,7 @@ export default class WindGL {
         gl.uniform1f(program.u_speed_factor, this.speedFactor);
         gl.uniform1f(program.u_drop_rate, this.dropRate);
         gl.uniform1f(program.u_drop_rate_bump, this.dropRateBump);
+        gl.uniform4fv(program.u_bbox, this.bbox);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
@@ -196,4 +201,11 @@ function getColorRamp(colors) {
     ctx.fillRect(0, 0, 256, 1);
 
     return new Uint8Array(ctx.getImageData(0, 0, 256, 1).data);
+}
+
+function mercY(y) {
+    const s = Math.sin(Math.PI / 2 - y * Math.PI);
+    const y2 = 1.0 - (Math.log((1.0 + s) / (1.0 - s)) / (2 * Math.PI) + 1.0) / 2.0;
+    return y2 < 0 ? 0 :
+           y2 > 1 ? 1 : y2;
 }

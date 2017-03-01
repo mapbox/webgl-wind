@@ -9,6 +9,7 @@ uniform float u_rand_seed;
 uniform float u_speed_factor;
 uniform float u_drop_rate;
 uniform float u_drop_rate_bump;
+uniform vec4 u_bbox;
 
 varying vec2 v_tex_pos;
 
@@ -53,12 +54,17 @@ void main() {
 
     // drop rate is a chance a particle will restart at random position, to avoid degeneration
     float drop_rate = u_drop_rate + speed_t * u_drop_rate_bump;
-    float drop = step(1.0 - drop_rate, rand(seed));
+
+    float retain = step(drop_rate, rand(seed)) *
+        step(u_bbox.x, pos.x) *
+        step(pos.x, u_bbox.z) *
+        step(u_bbox.y, pos.y) *
+        step(pos.y, u_bbox.w); // also drop the particle if it went off the current bbox
 
     vec2 random_pos = vec2(
         rand(seed + 1.3),
         rand(seed + 2.1));
-    pos = mix(pos, random_pos, drop);
+    pos = mix(pos, random_pos, 1.0 - retain);
 
     // encode the new particle position back into RGBA
     gl_FragColor = vec4(
