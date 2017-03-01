@@ -87,7 +87,7 @@ function bindFramebuffer(gl, framebuffer, texture) {
     }
 }
 
-var drawVert = "precision mediump float;\n\nattribute float a_index;\n\nuniform sampler2D u_particles;\nuniform float u_particles_res;\n\nvarying vec2 v_particle_pos;\n\nvoid main() {\n    vec4 color = texture2D(u_particles, vec2(\n        fract(a_index / u_particles_res),\n        floor(a_index / u_particles_res) / u_particles_res));\n\n    // decode current particle position from the pixel's RGBA value\n    v_particle_pos = vec2(\n        color.r / 255.0 + color.b,\n        color.g / 255.0 + color.a);\n\n    // project the position with mercator projection\n    float s = sin(radians(90.0 - v_particle_pos.y * 180.0));\n    float y = degrees(log((1.0 + s) / (1.0 - s))) / 360.0;\n    float x = 2.0 * v_particle_pos.x - 1.0;\n\n    gl_PointSize = 1.0;\n    gl_Position = vec4(x, y, 0, 1);\n}\n";
+var drawVert = "precision mediump float;\n\nattribute float a_index;\n\nuniform sampler2D u_particles;\nuniform float u_particles_res;\n\nuniform vec4 u_bbox;\n\nvarying vec2 v_particle_pos;\n\nvoid main() {\n    vec4 color = texture2D(u_particles, vec2(\n        fract(a_index / u_particles_res),\n        floor(a_index / u_particles_res) / u_particles_res));\n\n    // decode current particle position from the pixel's RGBA value\n    v_particle_pos = vec2(\n        color.r / 255.0 + color.b,\n        color.g / 255.0 + color.a);\n\n    // project the position with mercator projection\n    float s = sin(radians(90.0 - v_particle_pos.y * 180.0));\n    float y = (degrees(log((1.0 + s) / (1.0 - s))) / 360.0 + 1.0) / 2.0;\n    float x = v_particle_pos.x;\n\n    vec2 min = u_bbox.xy;\n    vec2 max = u_bbox.zw;\n\n    gl_PointSize = 1.0;\n    gl_Position = vec4(\n        2.0 * (x - min.x) / (max.x - min.x) - 1.0,\n        2.0 * (y - min.y) / (max.y - min.y) - 1.0,\n        0, 1);\n}\n";
 
 var drawFrag = "precision mediump float;\n\nuniform sampler2D u_wind;\nuniform vec2 u_wind_min;\nuniform vec2 u_wind_max;\nuniform sampler2D u_color_ramp;\n\nvarying vec2 v_particle_pos;\n\nvoid main() {\n    vec2 velocity = mix(u_wind_min, u_wind_max, texture2D(u_wind, v_particle_pos).rg);\n    float speed_t = length(velocity) / length(u_wind_max);\n\n    // color ramp is encoded in a 16x16 texture\n    vec2 ramp_pos = vec2(\n        fract(16.0 * speed_t),\n        floor(16.0 * speed_t) / 16.0);\n\n    gl_FragColor = texture2D(u_color_ramp, ramp_pos);\n}\n";
 
@@ -115,6 +115,7 @@ var WindGL = function WindGL(gl) {
     this.speedFactor = 0.25; // how fast the particles move
     this.dropRate = 0.003; // how often the particles move to a random place
     this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
+    this.bbox = [0, 0, 1, 1]; // mercator bbox of the wind view
 
     this.drawProgram = createProgram(gl, drawVert, drawFrag);
     this.screenProgram = createProgram(gl, quadVert, screenFrag);
@@ -232,6 +233,8 @@ WindGL.prototype.drawParticles = function drawParticles () {
     gl.uniform1f(program.u_particles_res, this.particleStateResolution);
     gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
     gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+
+    gl.uniform4fv(program.u_bbox, this.bbox);
 
     gl.drawArrays(gl.POINTS, 0, this._numParticles);
 };

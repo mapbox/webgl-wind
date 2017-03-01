@@ -28,6 +28,7 @@ export default class WindGL {
         this.speedFactor = 0.25; // how fast the particles move
         this.dropRate = 0.003; // how often the particles move to a random place
         this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
+        this.bbox = [0, 0, 1, 1]; // mercator bbox of the wind view
 
         this.drawProgram = util.createProgram(gl, drawVert, drawFrag);
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
@@ -143,6 +144,8 @@ export default class WindGL {
         gl.uniform1f(program.u_particles_res, this.particleStateResolution);
         gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
         gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+
+        gl.uniform4fv(program.u_bbox, this.bbox);
 
         gl.drawArrays(gl.POINTS, 0, this._numParticles);
     }

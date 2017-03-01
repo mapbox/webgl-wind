@@ -20,7 +20,7 @@ frame();
 
 const gui = new dat.GUI();
 gui.add(wind, 'numParticles', 1024, 589824);
-gui.add(wind, 'fadeOpacity', 0.96, 0.999).step(0.001).updateDisplay();
+gui.add(wind, 'fadeOpacity', 0.96, 0.999, 0.001).updateDisplay();
 gui.add(wind, 'speedFactor', 0.05, 1.0);
 gui.add(wind, 'dropRate', 0, 0.1);
 gui.add(wind, 'dropRateBump', 0, 0.2);
@@ -38,19 +38,37 @@ const windFiles = {
 };
 
 const meta = {
+    'zoom': 0,
     '2016-11-20+h': 0,
     'retina resolution': true,
     'github.com/mapbox/webgl-wind': function () {
         window.location = 'https://github.com/mapbox/webgl-wind';
     }
 };
+
+gui.add(meta, 'zoom', 0, 2, 0.01).onChange(updateZoom);
 gui.add(meta, '2016-11-20+h', 0, 48, 6).onFinishChange(updateWind);
+
 if (pxRatio !== 1) {
     gui.add(meta, 'retina resolution').onFinishChange(updateRetina);
 }
+
 gui.add(meta, 'github.com/mapbox/webgl-wind');
+
 updateWind(0);
 updateRetina();
+
+function updateZoom() {
+    const halfSize = 0.5 / Math.pow(2, meta.zoom);
+    wind.bbox = [
+        0.5 - halfSize,
+        0.5 - halfSize,
+        0.5 + halfSize,
+        0.5 + halfSize
+    ];
+    drawCoastline();
+    wind.resize();
+}
 
 function updateRetina() {
     const ratio = meta['retina resolution'] ? pxRatio : 1;
@@ -59,7 +77,14 @@ function updateRetina() {
     wind.resize();
 }
 
+let coastlineFeatures;
+
 getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastline.geojson', function (data) {
+    coastlineFeatures = data.features;
+    drawCoastline();
+});
+
+function drawCoastline() {
     const canvas = document.getElementById('coastline');
     canvas.width = canvas.clientWidth * pxRatio;
     canvas.height = canvas.clientHeight * pxRatio;
@@ -70,16 +95,19 @@ getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastl
     ctx.strokeStyle = 'white';
     ctx.beginPath();
 
-    for (let i = 0; i < data.features.length; i++) {
-        const line = data.features[i].geometry.coordinates;
+    for (let i = 0; i < coastlineFeatures.length; i++) {
+        const line = coastlineFeatures[i].geometry.coordinates;
         for (let j = 0; j < line.length; j++) {
+            const x = (line[j][0] + 180) / 360;
+            const y = latY(line[j][1]);
             ctx[j ? 'lineTo' : 'moveTo'](
-                (line[j][0] + 180) * canvas.width / 360,
-                latY(line[j][1]) * canvas.height);
+                (x - wind.bbox[0]) / (wind.bbox[2] - wind.bbox[0]) * canvas.width,
+                (y - (1 - wind.bbox[3])) / (wind.bbox[3] - wind.bbox[1]) * canvas.height);
         }
     }
     ctx.stroke();
-});
+
+}
 
 function updateWind(name) {
     getJSON('wind/' + windFiles[name] + '.json', function (windData) {
