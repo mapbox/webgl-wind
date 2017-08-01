@@ -20,7 +20,7 @@ in particular [A GPU Approach to Particle Physics](http://nullprogram.com/blog/2
 npm install
 npm run build
 npm start
-# open http://127.0.0.1:1337
+# open http://127.0.0.1:1337/demo/
 ```
 
 ### Downloading weather data
