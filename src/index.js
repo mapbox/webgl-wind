@@ -150,6 +150,7 @@ export default class WindGL {
         gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
         gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
         gl.uniform4fv(program.u_mercator_bbox, this.mercBBox);
+        gl.uniform4fv(program.u_bbox, this.bbox);
 
         gl.drawArrays(gl.POINTS, 0, this._numParticles);
     }

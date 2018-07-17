@@ -39,14 +39,17 @@ void main() {
         color.r / 255.0 + color.b,
         color.g / 255.0 + color.a); // decode particle position from pixel RGBA
 
-    vec2 velocity = mix(u_wind_min, u_wind_max, lookup_wind(pos));
+    // convert to global geographic position
+    vec2 global_pos = u_bbox.xy + pos * (u_bbox.zw - u_bbox.xy);
+
+    vec2 velocity = mix(u_wind_min, u_wind_max, lookup_wind(global_pos));
     float speed_t = length(velocity) / length(u_wind_max);
 
     // take EPSG:4236 distortion into account for calculating where the particle moved
-    float distortion = cos(radians(pos.y * 180.0 - 90.0));
-    vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.0001 * u_speed_factor * (u_bbox.z - u_bbox.x);
+    float distortion = cos(radians(global_pos.y * 180.0 - 90.0));
+    vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.0001 * u_speed_factor;
 
-    // update particle position, wrapping around the date line
+    // update particle position, wrapping around the boundaries
     pos = fract(1.0 + pos + offset);
 
     // a random seed to use for the particle drop
@@ -55,15 +58,9 @@ void main() {
     // drop rate is a chance a particle will restart at random position, to avoid degeneration
     float drop_rate = u_drop_rate + speed_t * u_drop_rate_bump;
 
-    float retain = step(drop_rate, rand(seed)) *
-        step(u_bbox.x, pos.x) *
-        step(pos.x, u_bbox.z) *
-        step(u_bbox.y, 1.0 - pos.y) *
-        step(1.0 - pos.y, u_bbox.w); // also drop the particle if it went off the current bbox
+    float retain = step(drop_rate, rand(seed));
 
-    vec2 random_pos = vec2(
-        u_bbox.x + rand(seed + 1.3) * (u_bbox.z - u_bbox.x),
-        1.0 - (u_bbox.y + rand(seed + 2.1) * (u_bbox.w - u_bbox.y)));
+    vec2 random_pos = vec2(rand(seed + 1.3), 1.0 - rand(seed + 2.1));
     pos = mix(pos, random_pos, 1.0 - retain);
 
     // encode the new particle position back into RGBA
