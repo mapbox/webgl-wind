@@ -101,10 +101,13 @@ function drawCoastline() {
         for (let j = 0; j < line.length; j++) {
             const x = (line[j][0] + 180) / 360;
             const y = latY(line[j][1]);
-            const bbox = wind.mercBBox;
+            const minX = wind.bbox[0];
+            const minY = latY(90 - 180 * wind.bbox[1]);
+            const maxX = wind.bbox[2];
+            const maxY = latY(90 - 180 * wind.bbox[3]);
             ctx[j ? 'lineTo' : 'moveTo'](
-                (x - bbox[0]) / (bbox[2] - bbox[0]) * canvas.width,
-                (y - (1 - bbox[3])) / (bbox[3] - bbox[1]) * canvas.height);
+                (x - minX) / (maxX - minX) * canvas.width,
+                (y - (1 - maxY)) / (maxY - minY) * canvas.height);
         }
     }
     ctx.stroke();

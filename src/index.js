@@ -84,7 +84,16 @@ export default class WindGL {
 
     setBBox(bbox) {
         this.bbox = bbox;
-        this.mercBBox = [bbox[0], mercY(bbox[1]), bbox[2], mercY(bbox[3])];
+
+        const minX = bbox[0];
+        const minY = mercY(bbox[1]);
+        const maxX = bbox[2];
+        const maxY = mercY(bbox[3]);
+
+        const kx = 2 / (maxX - minX);
+        const ky = 2 / (maxY - minY);
+
+        this.matrix = new Float32Array([kx, 0, 0, 0, 0, ky, 0, 0, 0, 0, 1, 0, -1 - minX * kx, -1 - minY * ky, 0, 1]);
     }
 
     draw() {
@@ -149,7 +158,7 @@ export default class WindGL {
         gl.uniform1f(program.u_particles_res, this.particleStateResolution);
         gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
         gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
-        gl.uniform4fv(program.u_mercator_bbox, this.mercBBox);
+        gl.uniformMatrix4fv(program.u_matrix, false, this.matrix);
         gl.uniform4fv(program.u_bbox, this.bbox);
 
         gl.drawArrays(gl.POINTS, 0, this._numParticles);
@@ -205,7 +214,7 @@ function getColorRamp(colors) {
 }
 
 function mercY(y) {
-    const s = Math.sin(Math.PI / 2 - y * Math.PI);
+    const s = Math.sin(Math.PI * (0.5 - y));
     const y2 = 1.0 - (Math.log((1.0 + s) / (1.0 - s)) / (2 * Math.PI) + 1.0) / 2.0;
     return y2 < 0 ? 0 :
            y2 > 1 ? 1 : y2;
