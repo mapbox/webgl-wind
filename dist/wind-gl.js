@@ -124,7 +124,7 @@ var WindGL = function WindGL(gl) {
     this.framebuffer = gl.createFramebuffer();
 
     this.setColorRamp(defaultRampColors);
-    this.setBBox([0, 0, 1, 1]);
+    this.setView([0, 0, 1, 1]);
     this.resize();
 };
 
@@ -171,18 +171,23 @@ WindGL.prototype.setWind = function setWind (windData) {
     this.windTexture = createTexture(this.gl, this.gl.LINEAR, windData.image);
 };
 
-WindGL.prototype.setBBox = function setBBox (bbox) {
+WindGL.prototype.setView = function setView (bbox, matrix) {
     this.bbox = bbox;
 
-    var minX = bbox[0];
-    var minY = mercY(bbox[1]);
-    var maxX = bbox[2];
-    var maxY = mercY(bbox[3]);
+    if (matrix) {
+        this.matrix = matrix;
 
-    var kx = 2 / (maxX - minX);
-    var ky = 2 / (maxY - minY);
+    } else {
+        var minX = bbox[0];
+        var minY = mercY(bbox[1]);
+        var maxX = bbox[2];
+        var maxY = mercY(bbox[3]);
 
-    this.matrix = new Float32Array([kx, 0, 0, 0, 0, ky, 0, 0, 0, 0, 1, 0, -1 - minX * kx, -1 - minY * ky, 0, 1]);
+        var kx = 2 / (maxX - minX);
+        var ky = 2 / (maxY - minY);
+
+        this.matrix = new Float32Array([kx, 0, 0, 0, 0, ky, 0, 0, 0, 0, 1, 0, -1 - minX * kx, -1 - minY * ky, 0, 1]);
+    }
 };
 
 WindGL.prototype.draw = function draw () {

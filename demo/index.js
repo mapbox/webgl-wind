@@ -60,7 +60,7 @@ updateRetina();
 
 function updateZoom() {
     const halfSize = 0.5 / Math.pow(2, meta.zoom);
-    wind.setBBox([
+    wind.setView([
         0.5 - halfSize,
         0.5 - halfSize,
         0.5 + halfSize,

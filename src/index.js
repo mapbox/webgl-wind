@@ -37,7 +37,7 @@ export default class WindGL {
         this.framebuffer = gl.createFramebuffer();
 
         this.setColorRamp(defaultRampColors);
-        this.setBBox([0, 0, 1, 1]);
+        this.setView([0, 0, 1, 1]);
         this.resize();
     }
 
@@ -82,18 +82,23 @@ export default class WindGL {
         this.windTexture = util.createTexture(this.gl, this.gl.LINEAR, windData.image);
     }
 
-    setBBox(bbox) {
+    setView(bbox, matrix) {
         this.bbox = bbox;
 
-        const minX = bbox[0];
-        const minY = mercY(bbox[1]);
-        const maxX = bbox[2];
-        const maxY = mercY(bbox[3]);
+        if (matrix) {
+            this.matrix = matrix;
 
-        const kx = 2 / (maxX - minX);
-        const ky = 2 / (maxY - minY);
+        } else {
+            const minX = bbox[0];
+            const minY = mercY(bbox[1]);
+            const maxX = bbox[2];
+            const maxY = mercY(bbox[3]);
 
-        this.matrix = new Float32Array([kx, 0, 0, 0, 0, ky, 0, 0, 0, 0, 1, 0, -1 - minX * kx, -1 - minY * ky, 0, 1]);
+            const kx = 2 / (maxX - minX);
+            const ky = 2 / (maxY - minY);
+
+            this.matrix = new Float32Array([kx, 0, 0, 0, 0, ky, 0, 0, 0, 0, 1, 0, -1 - minX * kx, -1 - minY * ky, 0, 1]);
+        }
     }
 
     draw() {
