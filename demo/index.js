@@ -8,7 +8,6 @@ canvas.height = canvas.clientHeight;
 const gl = canvas.getContext('webgl', {antialiasing: false});
 
 const wind = window.wind = new WindGL(gl);
-wind.numParticles = 65536;
 
 function frame() {
     if (wind.windData) {
@@ -116,10 +115,9 @@ function drawCoastline() {
 function updateWind(name) {
     getJSON('wind/' + windFiles[name] + '.json', function (windData) {
         const windImage = new Image();
-        windData.image = windImage;
         windImage.src = 'wind/' + windFiles[name] + '.png';
         windImage.onload = function () {
-            wind.setWind(windData);
+            wind.setWind(windData, windImage);
             wind.resize();
         };
     });

@@ -28,6 +28,7 @@ export default class WindGL {
         this.speedFactor = 0.25; // how fast the particles move
         this.dropRate = 0.003; // how often the particles move to a random place
         this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
+        this.numParticles = 65536;
 
         this.drawProgram = util.createProgram(gl, drawVert, drawFrag);
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
@@ -77,9 +78,9 @@ export default class WindGL {
         return this._numParticles;
     }
 
-    setWind(windData) {
-        this.windData = windData;
-        this.windTexture = util.createTexture(this.gl, this.gl.LINEAR, windData.image);
+    setWind(data, image) {
+        this.windData = data;
+        this.windTexture = util.createTexture(this.gl, this.gl.LINEAR, image);
     }
 
     setView(bbox, matrix) {
@@ -90,9 +91,9 @@ export default class WindGL {
 
         } else {
             const minX = bbox[0];
-            const minY = mercY(bbox[1]);
+            const minY = mercY(bbox[3]);
             const maxX = bbox[2];
-            const maxY = mercY(bbox[3]);
+            const maxY = mercY(bbox[1]);
 
             const kx = 2 / (maxX - minX);
             const ky = 2 / (maxY - minY);
@@ -219,7 +220,7 @@ function getColorRamp(colors) {
 }
 
 function mercY(y) {
-    const s = Math.sin(Math.PI * (0.5 - y));
+    const s = Math.sin(Math.PI * (y - 0.5));
     const y2 = 1.0 - (Math.log((1.0 + s) / (1.0 - s)) / (2 * Math.PI) + 1.0) / 2.0;
     return y2 < 0 ? 0 :
            y2 > 1 ? 1 : y2;
