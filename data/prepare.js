@@ -3,8 +3,19 @@ const fs = require('fs');
 
 const data = JSON.parse(fs.readFileSync('tmp.json'));
 const name = process.argv[2];
-const u = data.u;
-const v = data.v;
+
+
+
+const umessage = data.u.messages[0];
+const vmessage = data.v.messages[0];
+
+const unpack = (message) =>
+    message.reduce((acc, { key, value }) => ({ ...acc, [key]: value }), {});
+const u = unpack(umessage);
+const v = unpack(vmessage);
+
+
+
 
 const width = u.Ni;
 const height = u.Nj - 1;
@@ -29,7 +40,7 @@ for (let y = 0; y < height; y++) {
 
 png.pack().pipe(fs.createWriteStream(name + '.png'));
 
-fs.writeFileSync(name + '.json', JSON.stringify({
+fs.writeFileSync('./' + name + '.json', JSON.stringify({
     source: 'http://nomads.ncep.noaa.gov',
     date: formatDate(u.dataDate + '', u.dataTime),
     width: width,
