@@ -26,25 +26,21 @@ gui.add(wind, 'dropRate', 0, 0.1);
 gui.add(wind, 'dropRateBump', 0, 0.2);
 
 const windFiles = {
-    0: '2016112000',
-    6: '2016112006',
-    12: '2016112012',
-    18: '2016112018',
-    24: '2016112100',
-    30: '2016112106',
-    36: '2016112112',
-    42: '2016112118',
-    48: '2016112200'
+    0: '2021062700',
+   24: '2021062800',
+   48: '2021062900',
+   72: '2021063000',
+   96: '2021070100'
 };
 
 const meta = {
-    '2016-11-20+h': 0,
+    '2021-06-27+h': 0,
     'retina resolution': true,
     'github.com/mapbox/webgl-wind': function () {
         window.location = 'https://github.com/mapbox/webgl-wind';
     }
 };
-gui.add(meta, '2016-11-20+h', 0, 48, 6).onFinishChange(updateWind);
+gui.add(meta, '2021-06-27+h', 0, 96, 24).onFinishChange(updateWind);
 if (pxRatio !== 1) {
     gui.add(meta, 'retina resolution').onFinishChange(updateRetina);
 }
