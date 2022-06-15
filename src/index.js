@@ -5,6 +5,7 @@ import drawVert from './shaders/draw.vert.glsl';
 import drawFrag from './shaders/draw.frag.glsl';
 
 import quadVert from './shaders/quad.vert.glsl';
+import tileQuadVert from './shaders/tile_quad.vert.glsl';
 
 import screenFrag from './shaders/screen.frag.glsl';
 import updateFrag from './shaders/update.frag.glsl';
@@ -21,8 +22,10 @@ const defaultRampColors = {
 };
 
 export default class WindGL {
-    constructor(gl) {
+    constructor(gl, width, height) {
         this.gl = gl;
+        this.width = width;
+        this.height = height;
 
         this.fadeOpacity = 0.996; // how fast the particle trails fade on each frame
         this.speedFactor = 0.25; // how fast the particles move
@@ -32,6 +35,7 @@ export default class WindGL {
 
         this.drawProgram = util.createProgram(gl, drawVert, drawFrag);
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
+        this.tileProgram = util.createProgram(gl, tileQuadVert, screenFrag);
         this.updateProgram = util.createProgram(gl, quadVert, updateFrag);
 
         this.quadBuffer = util.createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
@@ -42,12 +46,19 @@ export default class WindGL {
         this.resize();
     }
 
+    texWidth() {
+        return this.width || this.gl.canvas.width;
+    }
+    texHeight() {
+        return this.width || this.gl.canvas.height;
+    }
+
     resize() {
         const gl = this.gl;
-        const emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
+        const emptyPixels = new Uint8Array(this.texWidth() * this.texHeight() * 4);
         // screen textures to hold the drawn screen for the previous and the current frame
-        this.backgroundTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
-        this.screenTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+        this.backgroundTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, this.texWidth(), this.texHeight());
+        this.screenTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, this.texWidth(), this.texHeight());
     }
 
     setColorRamp(colors) {
@@ -136,15 +147,18 @@ export default class WindGL {
         this.screenTexture = temp;
     }
 
-    drawTexture(texture, opacity) {
+    drawTexture(texture, opacity, offsetScale) {
         const gl = this.gl;
-        const program = this.screenProgram;
+        const program = offsetScale ? this.tileProgram : this.screenProgram;
         gl.useProgram(program.program);
 
         util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
         util.bindTexture(gl, texture, 2);
         gl.uniform1i(program.u_screen, 2);
         gl.uniform1f(program.u_opacity, opacity);
+        if (offsetScale) {
+            gl.uniform4fv(program.u_offset_scale, offsetScale);
+        }
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
     }

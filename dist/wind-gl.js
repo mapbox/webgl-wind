@@ -93,6 +93,8 @@ var drawFrag = "precision mediump float;\n\nuniform sampler2D u_wind;\nuniform v
 
 var quadVert = "precision mediump float;\n\nattribute vec2 a_pos;\n\nvarying vec2 v_tex_pos;\n\nvoid main() {\n    v_tex_pos = a_pos;\n    gl_Position = vec4(1.0 - 2.0 * a_pos, 0, 1);\n}\n";
 
+var tileQuadVert = "precision mediump float;\n\nuniform vec4 u_offset_scale;\n\nattribute vec2 a_pos;\n\nvarying vec2 v_tex_pos;\n\nvoid main() {\n    vec2 uv = a_pos / u_offset_scale.zw - u_offset_scale.xy;\n    v_tex_pos = vec2(1.0 - uv.x, uv.y);\n    gl_Position = vec4(2.0 * a_pos - 1.0, 0, 1);\n}\n";
+
 var screenFrag = "precision mediump float;\n\nuniform sampler2D u_screen;\nuniform float u_opacity;\n\nvarying vec2 v_tex_pos;\n\nvoid main() {\n    vec4 color = texture2D(u_screen, 1.0 - v_tex_pos);\n    // a hack to guarantee opacity fade out even with a value close to 1.0\n    gl_FragColor = vec4(floor(255.0 * color * u_opacity) / 255.0);\n}\n";
 
 var updateFrag = "precision highp float;\n\nuniform sampler2D u_particles;\nuniform sampler2D u_wind;\nuniform vec2 u_wind_res;\nuniform vec2 u_wind_min;\nuniform vec2 u_wind_max;\nuniform float u_rand_seed;\nuniform float u_speed_factor;\nuniform float u_drop_rate;\nuniform float u_drop_rate_bump;\nuniform vec4 u_bbox;\n\nvarying vec2 v_tex_pos;\n\n// pseudo-random generator\nconst vec3 rand_constants = vec3(12.9898, 78.233, 4375.85453);\nfloat rand(const vec2 co) {\n    float t = dot(rand_constants.xy, co);\n    return fract(sin(t) * (rand_constants.z + t));\n}\n\n// wind speed lookup; use manual bilinear filtering based on 4 adjacent pixels for smooth interpolation\nvec2 lookup_wind(const vec2 uv) {\n    // return texture2D(u_wind, uv).rg; // lower-res hardware filtering\n    vec2 px = 1.0 / u_wind_res;\n    vec2 vc = (floor(uv * u_wind_res)) * px;\n    vec2 f = fract(uv * u_wind_res);\n    vec2 tl = texture2D(u_wind, vc).rg;\n    vec2 tr = texture2D(u_wind, vc + vec2(px.x, 0)).rg;\n    vec2 bl = texture2D(u_wind, vc + vec2(0, px.y)).rg;\n    vec2 br = texture2D(u_wind, vc + px).rg;\n    return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);\n}\n\nvoid main() {\n    vec4 color = texture2D(u_particles, v_tex_pos);\n    vec2 pos = vec2(\n        color.r / 255.0 + color.b,\n        color.g / 255.0 + color.a); // decode particle position from pixel RGBA\n\n    // convert to global geographic position\n    vec2 global_pos = u_bbox.xy + pos * (u_bbox.zw - u_bbox.xy);\n\n    vec2 velocity = mix(u_wind_min, u_wind_max, lookup_wind(global_pos));\n    float speed_t = length(velocity) / length(u_wind_max);\n\n    // take EPSG:4236 distortion into account for calculating where the particle moved\n    float distortion = cos(radians(global_pos.y * 180.0 - 90.0));\n    vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.0001 * u_speed_factor;\n\n    // update particle position, wrapping around the boundaries\n    pos = fract(1.0 + pos + offset);\n\n    // a random seed to use for the particle drop\n    vec2 seed = (pos + v_tex_pos) * u_rand_seed;\n\n    // drop rate is a chance a particle will restart at random position, to avoid degeneration\n    float drop_rate = u_drop_rate + speed_t * u_drop_rate_bump;\n\n    float retain = step(drop_rate, rand(seed));\n\n    vec2 random_pos = vec2(rand(seed + 1.3), 1.0 - rand(seed + 2.1));\n    pos = mix(pos, random_pos, 1.0 - retain);\n\n    // encode the new particle position back into RGBA\n    gl_FragColor = vec4(\n        fract(pos * 255.0),\n        floor(pos * 255.0) / 255.0);\n}\n";
@@ -108,8 +110,10 @@ var defaultRampColors = {
     1.0: '#d53e4f'
 };
 
-var WindGL = function WindGL(gl) {
+var WindGL = function WindGL(gl, width, height) {
     this.gl = gl;
+    this.width = width;
+    this.height = height;
 
     this.fadeOpacity = 0.996; // how fast the particle trails fade on each frame
     this.speedFactor = 0.25; // how fast the particles move
@@ -119,6 +123,7 @@ var WindGL = function WindGL(gl) {
 
     this.drawProgram = createProgram(gl, drawVert, drawFrag);
     this.screenProgram = createProgram(gl, quadVert, screenFrag);
+    this.tileProgram = createProgram(gl, tileQuadVert, screenFrag);
     this.updateProgram = createProgram(gl, quadVert, updateFrag);
 
     this.quadBuffer = createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
@@ -131,12 +136,19 @@ var WindGL = function WindGL(gl) {
 
 var prototypeAccessors = { numParticles: {} };
 
+WindGL.prototype.texWidth = function texWidth () {
+    return this.width || this.gl.canvas.width;
+};
+WindGL.prototype.texHeight = function texHeight () {
+    return this.width || this.gl.canvas.height;
+};
+
 WindGL.prototype.resize = function resize () {
     var gl = this.gl;
-    var emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
+    var emptyPixels = new Uint8Array(this.texWidth() * this.texHeight() * 4);
     // screen textures to hold the drawn screen for the previous and the current frame
-    this.backgroundTexture = createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
-    this.screenTexture = createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+    this.backgroundTexture = createTexture(gl, gl.NEAREST, emptyPixels, this.texWidth(), this.texHeight());
+    this.screenTexture = createTexture(gl, gl.NEAREST, emptyPixels, this.texWidth(), this.texHeight());
 };
 
 WindGL.prototype.setColorRamp = function setColorRamp (colors) {
@@ -225,15 +237,18 @@ WindGL.prototype.drawScreen = function drawScreen () {
     this.screenTexture = temp;
 };
 
-WindGL.prototype.drawTexture = function drawTexture (texture, opacity) {
+WindGL.prototype.drawTexture = function drawTexture (texture, opacity, offsetScale) {
     var gl = this.gl;
-    var program = this.screenProgram;
+    var program = offsetScale ? this.tileProgram : this.screenProgram;
     gl.useProgram(program.program);
 
     bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
     bindTexture(gl, texture, 2);
     gl.uniform1i(program.u_screen, 2);
     gl.uniform1f(program.u_opacity, opacity);
+    if (offsetScale) {
+        gl.uniform4fv(program.u_offset_scale, offsetScale);
+    }
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 };
