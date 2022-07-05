@@ -1,3 +1,7 @@
+修改了data文件夹内shell脚本及处理数据用的prepare.js文件，使脚本可正常运行
+
+
+
 ## WebGL Wind — [Demo](https://mapbox.github.io/webgl-wind/demo/)
 
 A WebGL-powered visualization of wind power.
