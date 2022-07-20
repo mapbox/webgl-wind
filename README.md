@@ -1,3 +1,10 @@
+
+
+## 更新
+修改了data文件夹内shell脚本及处理数据用的prepare.js文件，使脚本可正常运行
+
+
+
 ## WebGL Wind — [Demo](https://mapbox.github.io/webgl-wind/demo/)
 
 A WebGL-powered visualization of wind power.
@@ -25,6 +32,6 @@ npm start
 
 ### Downloading weather data
 
-1. Install [ecCodes](https://confluence.ecmwf.int//display/ECC/ecCodes+Home) (e.g. `brew install eccodes`).
+1. Install [ecCodes](https://confluence.ecmwf.int//display/ECC/ecCodes+Home) (e.g. `brew install eccodes`)(如果是ubuntu可以运行命令：`apt install libeccodes-tools`).
 2. Edit constants in `data/download.sh` for desired date, time and resolution.
 3. Run `./data/download.sh <dir>` to generate wind data files (`png` and `json`) for use with the library.
