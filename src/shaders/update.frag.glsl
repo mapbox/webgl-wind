@@ -32,14 +32,41 @@ vec2 lookup_wind(const vec2 uv) {
     return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
 }
 
+// Calculate wind direction and speed using user's method
+vec2 calculate_wind_info(const vec2 uv) {
+    vec2 uv_component = mix(u_wind_min, u_wind_max, lookup_wind(uv));
+    float U = uv_component.x;
+    float V = uv_component.y;
+    
+    // User's calculation method:
+    // 全流速 = sqrt(U² + V²)
+    float total_speed = sqrt(U * U + V * V);
+    
+    // 风向 = atan2(U, V) × 180/π (convert to degrees)
+    float wind_direction_degrees = degrees(atan(U, V));
+    
+    // Normalize to 0-1 range for further processing
+    return vec2(total_speed, wind_direction_degrees);
+}
+
 void main() {
     vec4 color = texture2D(u_particles, v_tex_pos);
     vec2 pos = vec2(
         color.r / 255.0 + color.b,
         color.g / 255.0 + color.a); // decode particle position from pixel RGBA
 
-    vec2 velocity = mix(u_wind_min, u_wind_max, lookup_wind(pos));
-    float speed_t = length(velocity) / length(u_wind_max);
+    vec2 wind_info = calculate_wind_info(pos);
+    float total_speed = wind_info.x;
+    float wind_direction_deg = wind_info.y;
+    
+    // Convert back to velocity vector using the calculated angle and speed
+    float wind_direction_rad = radians(wind_direction_deg);
+    vec2 velocity = vec2(
+        total_speed * sin(wind_direction_rad),
+        total_speed * cos(wind_direction_rad)
+    );
+    
+    float speed_t = total_speed / length(u_wind_max);
 
     // take EPSG:4236 distortion into account for calculating where the particle moved
     float distortion = cos(radians(pos.y * 180.0 - 90.0));

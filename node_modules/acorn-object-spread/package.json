@@ -1,0 +1,22 @@
+{
+  "name": "acorn-object-spread",
+  "description": "Support object spread in acorn",
+  "homepage": "https://github.com/UXtemple/acorn-object-spread",
+  "author": "Darío Javier Cravero <dario@uxtemple.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/UXtemple/acorn-object-spread"
+  },
+  "license": "MIT",
+  "scripts": {
+    "test": "node test/run.js"
+  },
+  "dependencies": {
+    "acorn": "^3.1.0"
+  },
+  "devDependencies": {
+    "chai": "^3.0.0",
+    "mocha": "^2.2.5"
+  },
+  "version": "1.0.0"
+}

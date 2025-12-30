@@ -26,25 +26,17 @@ gui.add(wind, 'dropRate', 0, 0.1);
 gui.add(wind, 'dropRateBump', 0, 0.2);
 
 const windFiles = {
-    0: '2016112000',
-    6: '2016112006',
-    12: '2016112012',
-    18: '2016112018',
-    24: '2016112100',
-    30: '2016112106',
-    36: '2016112112',
-    42: '2016112118',
-    48: '2016112200'
+    0: '2025062701'
 };
 
 const meta = {
-    '2016-11-20+h': 0,
+    'WRF Wind Data': 0,
     'retina resolution': true,
     'github.com/mapbox/webgl-wind': function () {
         window.location = 'https://github.com/mapbox/webgl-wind';
     }
 };
-gui.add(meta, '2016-11-20+h', 0, 48, 6).onFinishChange(updateWind);
+gui.add(meta, 'WRF Wind Data', 0, 0, 1).onFinishChange(updateWind);
 if (pxRatio !== 1) {
     gui.add(meta, 'retina resolution').onFinishChange(updateRetina);
 }
@@ -70,22 +62,32 @@ getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastl
     ctx.strokeStyle = 'white';
     ctx.beginPath();
 
+    // 中国东南沿海区域边界
+    const lonMin = 104, lonMax = 126;
+    const latMin = 14, latMax = 31;
+
     for (let i = 0; i < data.features.length; i++) {
         const line = data.features[i].geometry.coordinates;
         for (let j = 0; j < line.length; j++) {
-            ctx[j ? 'lineTo' : 'moveTo'](
-                (line[j][0] + 180) * canvas.width / 360,
-                (-line[j][1] + 90) * canvas.height / 180);
+            const lon = line[j][0];
+            const lat = line[j][1];
+            
+            // 只绘制在目标区域内的海岸线
+            if (lon >= lonMin && lon <= lonMax && lat >= latMin && lat <= latMax) {
+                ctx[j ? 'lineTo' : 'moveTo'](
+                    (lon - lonMin) * canvas.width / (lonMax - lonMin),
+                    (latMax - lat) * canvas.height / (latMax - latMin));
+            }
         }
     }
     ctx.stroke();
 });
 
 function updateWind(name) {
-    getJSON('wind/' + windFiles[name] + '.json', function (windData) {
+    getJSON('wind_wrf/' + windFiles[name] + '.json', function (windData) {
         const windImage = new Image();
         windData.image = windImage;
-        windImage.src = 'wind/' + windFiles[name] + '.png';
+        windImage.src = 'wind_wrf/' + windFiles[name] + '.png';
         windImage.onload = function () {
             wind.setWind(windData);
         };
