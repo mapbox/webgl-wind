@@ -164,6 +164,10 @@ body {
     color: #E57373;
 }
 
+.dg .function .property-name { 
+    width: 100%; 
+}
+
 .controls-section {
     font-size: 12px;
 }
@@ -215,104 +219,6 @@ body {
     text-align: right;
 }
 
-/* 工具提示样式 */
-.control-group {
-    position: relative;
-}
-
-.tooltip {
-    visibility: hidden;
-    opacity: 0;
-    position: absolute;
-    bottom: 125%;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: #333;
-    color: #fff;
-    text-align: center;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-size: 11px;
-    white-space: nowrap;
-    z-index: 1000;
-    transition: opacity 0.3s, visibility 0.3s;
-    pointer-events: none;
-}
-
-.tooltip::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 5px solid transparent;
-    border-top-color: #333;
-}
-
-.control-group:hover .tooltip {
-    visibility: visible;
-    opacity: 1;
-}
-
-/* 上传进度条样式 */
-.upload-progress {
-    margin-top: 15px;
-    padding: 15px;
-    background: #2d2d2d;
-    border-radius: 6px;
-    border: 1px solid #555;
-}
-
-.progress-bar {
-    width: 100%;
-    height: 8px;
-    background: #444;
-    border-radius: 4px;
-    overflow: hidden;
-    margin-bottom: 8px;
-}
-
-.progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #4CAF50, #81C784);
-    border-radius: 4px;
-    transition: width 0.3s ease;
-    position: relative;
-}
-
-.progress-fill::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
-    background-image: linear-gradient(
-        -45deg,
-        rgba(255, 255, 255, .2) 25%,
-        transparent 25%,
-        transparent 50%,
-        rgba(255, 255, 255, .2) 50%,
-        rgba(255, 255, 255, .2) 75%,
-        transparent 75%,
-        transparent
-    );
-    background-size: 50px 50px;
-    animation: move 2s linear infinite;
-}
-
-@keyframes move {
-    0% { background-position: 0 0; }
-    100% { background-position: 50px 50px; }
-}
-
-.progress-text {
-    font-size: 12px;
-    color: #ccc;
-    text-align: center;
-    margin-top: 5px;
-}
-
 @media (max-width: 768px) {
     .sidebar {
         width: 280px;
@@ -331,14 +237,6 @@ body {
             <p style="font-size: 12px; color: #ccc; margin-top: 10px;">
                 支持 NetCDF (.nc) 格式文件
             </p>
-            
-            <!-- 上传进度显示 -->
-            <div id="uploadProgress" class="upload-progress" style="display: none;">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-                </div>
-                <div class="progress-text" id="progressText">准备上传...</div>
-            </div>
         </div>
 
         <div class="data-list">
@@ -357,35 +255,30 @@ body {
                 <label for="particleCount">粒子数量:</label>
                 <input type="range" id="particleCount" min="1024" max="589824" value="65536" step="1024">
                 <span id="particleCountValue">65536</span>
-                <div class="tooltip">控制显示的粒子总数。更高的值提供更流畅的效果，但可能影响性能。</div>
             </div>
             
             <div class="control-group">
                 <label for="fadeOpacity">衰减透明度:</label>
                 <input type="range" id="fadeOpacity" min="0.96" max="0.999" value="0.96" step="0.001">
                 <span id="fadeOpacityValue">0.96</span>
-                <div class="tooltip">控制粒子轨迹的淡化程度。值越接近1，轨迹保持时间越长。</div>
             </div>
             
             <div class="control-group">
                 <label for="speedFactor">速度因子:</label>
                 <input type="range" id="speedFactor" min="0.05" max="1.0" value="0.5" step="0.01">
                 <span id="speedFactorValue">0.5</span>
-                <div class="tooltip">调整粒子移动速度的比例。增加此值使风场流动更快。</div>
             </div>
             
             <div class="control-group">
                 <label for="dropRate">消失率:</label>
                 <input type="range" id="dropRate" min="0" max="0.1" value="0" step="0.001">
                 <span id="dropRateValue">0</span>
-                <div class="tooltip">控制粒子的随机消失概率。较高的值使粒子更快重置。</div>
             </div>
             
             <div class="control-group">
                 <label for="dropRateBump">消失率峰值:</label>
                 <input type="range" id="dropRateBump" min="0" max="0.2" value="0" step="0.001">
                 <span id="dropRateBumpValue">0</span>
-                <div class="tooltip">在高风速区域增加消失率。这有助于在强风区域保持更多粒子更新。</div>
             </div>
         </div>
 
@@ -398,8 +291,9 @@ body {
     </div>
 </div>
 
-<script src="../dist/wind-gl.js"></script>
-<script src="index.js"></script>
-<script src="../data-panel.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+<script src="dist/wind-gl.js"></script>
+<script src="demo/index.js"></script>
+<script src="data-panel.js"></script>
 </body>
 </html>

@@ -118,9 +118,25 @@ function saveWindData(windData, outputDir, timeIndex = 0) {
     const jsonFile = `${outputDir}/${timestamp}.json`;
     const pngFile = `${outputDir}/${timestamp}.png`;
     
-    // 保存JSON元数据
-    fs.writeFileSync(jsonFile, JSON.stringify(metadata, null, 2));
+    // 保存JSON元数据 - 只保存必要的元信息，不包含完整数据数组
+    const metadata_json = {
+        width: metadata.width,
+        height: metadata.height,
+        uMin: metadata.uMin,
+        uMax: metadata.uMax,
+        vMin: metadata.vMin,
+        vMax: metadata.vMax,
+        speedMin: metadata.speedMin,
+        speedMax: metadata.speedMax,
+        longitude: [metadata.lonMin, metadata.lonMax],
+        latitude: [metadata.latMin, metadata.latMax],
+        source: metadata.source,
+        date: metadata.date
+    };
+    
+    fs.writeFileSync(jsonFile, JSON.stringify(metadata_json, null, 2));
     console.log(`Saved metadata to: ${jsonFile}`);
+    console.log(`Metadata size: ${JSON.stringify(metadata_json).length} bytes`);
     
     // 保存PNG图像
     return new Promise((resolve, reject) => {
@@ -138,7 +154,7 @@ function saveWindData(windData, outputDir, timeIndex = 0) {
 async function main() {
     try {
         const inputFile = '/Users/michaellevine/Documents/trae_projects/data/outputV2.json';
-        const outputDir = './demo/wind_wrf';
+        const outputDir = './data/wind_data/wrf_data';
         
         console.log('=== WRF风场数据转换工具 ===');
         

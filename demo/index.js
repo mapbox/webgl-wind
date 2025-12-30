@@ -18,31 +18,25 @@ function frame() {
 }
 frame();
 
-const gui = new dat.GUI();
-gui.add(wind, 'numParticles', 1024, 589824);
-gui.add(wind, 'fadeOpacity', 0.96, 0.999).step(0.001).updateDisplay();
-gui.add(wind, 'speedFactor', 0.05, 1.0);
-gui.add(wind, 'dropRate', 0, 0.1);
-gui.add(wind, 'dropRateBump', 0, 0.2);
+// 移除默认的dat.GUI控制面板，使用中文数据面板
 
 const windFiles = {
     0: '2025062701'
 };
 
 const meta = {
-    'WRF Wind Data': 0,
-    'retina resolution': true,
-    'github.com/mapbox/webgl-wind': function () {
-        window.location = 'https://github.com/mapbox/webgl-wind';
-    }
+    'retina resolution': true
 };
-gui.add(meta, 'WRF Wind Data', 0, 0, 1).onFinishChange(updateWind);
+
+// 设置retina分辨率
 if (pxRatio !== 1) {
-    gui.add(meta, 'retina resolution').onFinishChange(updateRetina);
+    updateRetina();
 }
-gui.add(meta, 'github.com/mapbox/webgl-wind');
+
+// 初始化风场数据
 updateWind(0);
-updateRetina();
+
+// 不再使用dat.GUI控制面板，所有控制功能都在中文数据面板中
 
 function updateRetina() {
     const ratio = meta['retina resolution'] ? pxRatio : 1;
@@ -84,13 +78,43 @@ getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastl
 });
 
 function updateWind(name) {
-    getJSON('wind_wrf/' + windFiles[name] + '.json', function (windData) {
-        const windImage = new Image();
-        windData.image = windImage;
-        windImage.src = 'wind_wrf/' + windFiles[name] + '.png';
-        windImage.onload = function () {
-            wind.setWind(windData);
-        };
+    getJSON('/data/wind_data/wrf_data/' + windFiles[name] + '.json', function (windData) {
+        if (windData) {
+            const windImage = new Image();
+            windData.image = windImage;
+            windImage.src = '/data/wind_data/wrf_data/' + windFiles[name] + '.png';
+            windImage.onload = function () {
+                wind.setWind(windData);
+            };
+            windImage.onerror = function() {
+                console.error('PNG图像加载失败:', windImage.src);
+            };
+        } else {
+            console.error('风场数据加载失败，无法显示可视化');
+        }
+    });
+}
+
+function updateWindData(dataInfo) {
+    // 确保路径以'/'开头以适应绝对路径
+    const jsonPath = dataInfo.path.startsWith('/') ? dataInfo.path : '/' + dataInfo.path;
+    const pngPath = dataInfo.path.startsWith('/') ? dataInfo.path : '/' + dataInfo.path;
+    
+    getJSON(jsonPath + '.json', function (windData) {
+        if (windData) {
+            const windImage = new Image();
+            windData.image = windImage;
+            windImage.src = pngPath + '.png';
+            windImage.onload = function () {
+                wind.setWind(windData);
+                console.log('风场数据更新成功:', dataInfo.name);
+            };
+            windImage.onerror = function() {
+                console.error('PNG图像加载失败:', windImage.src);
+            };
+        } else {
+            console.error('风场数据加载失败，无法显示可视化');
+        }
     });
 }
 
@@ -102,8 +126,13 @@ function getJSON(url, callback) {
         if (xhr.status >= 200 && xhr.status < 300) {
             callback(xhr.response);
         } else {
-            throw new Error(xhr.statusText);
+            console.error('加载失败:', url, '状态码:', xhr.status);
+            callback(null); // 不抛出异常，而是传递null
         }
+    };
+    xhr.onerror = function() {
+        console.error('网络请求失败:', url);
+        callback(null);
     };
     xhr.send();
 }

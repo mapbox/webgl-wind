@@ -1,6 +1,4 @@
 {
-  "source": "WRF Model Output",
-  "date": "2025-06-27T01:00Z",
   "width": 221,
   "height": 171,
   "uMin": -6.128969669342041,
@@ -9,8 +7,14 @@
   "vMax": 8.976096153259277,
   "speedMin": 0.022266598160266608,
   "speedMax": 11.081674543723993,
-  "lonMin": 104,
-  "lonMax": 126,
-  "latMin": 14,
-  "latMax": 31
+  "longitude": [
+    104,
+    126
+  ],
+  "latitude": [
+    14,
+    31
+  ],
+  "source": "WRF Model Output",
+  "date": "2025-06-27T01:00Z"
 }
