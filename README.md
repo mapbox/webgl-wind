@@ -27,4 +27,8 @@ npm start
 
 1. Install [ecCodes](https://confluence.ecmwf.int//display/ECC/ecCodes+Home) (e.g. `brew install eccodes`).
 2. Edit constants in `data/download.sh` for desired date, time and resolution.
-3. Run `./data/download.sh <dir>` to generate wind data files (`png` and `json`) for use with the library.
+3. Run `./data/download.sh demo/wind 20210627 00` to generate wind data files (`png` and `json`) for use with the library.
+4. Modify the `windFiles`, object in demo/index.js to reference the new dataset
+    1. Object keys are offsets in hours from the first date/time
+    2. The label for the GUI control is in the `meta` object
+    3. The min, max, and interval for the GUI control are on the `gui.add(meta, ...)` line
