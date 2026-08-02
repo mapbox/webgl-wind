@@ -56,15 +56,15 @@ export default class WindGL {
         const gl = this.gl;
 
         // a square texture where each pixel holds one particle: current position in rg,
-        // the one it came from in ba
+        // its last step packed into b, its speed in a
         const particleRes = this.particleStateResolution = Math.ceil(Math.sqrt(numParticles));
         this._numParticles = particleRes * particleRes;
 
         const particleState = new Float32Array(this._numParticles * 4);
         for (let i = 0; i < particleState.length; i += 4) {
-            // random initial positions, with no segment to draw yet
-            particleState[i] = particleState[i + 2] = Math.random();
-            particleState[i + 1] = particleState[i + 3] = Math.random();
+            // random initial positions; a zero step means no segment to draw yet
+            particleState[i] = Math.random();
+            particleState[i + 1] = Math.random();
         }
         gl.deleteTexture(this.particleStateTexture0);
         gl.deleteTexture(this.particleStateTexture1);
@@ -152,14 +152,10 @@ export default class WindGL {
 
         util.bindTexture(gl, this.colorRampTexture, 2);
 
-        gl.uniform1i(program.u_wind, 0);
         gl.uniform1i(program.u_particles, 1);
         gl.uniform1i(program.u_color_ramp, 2);
 
         gl.uniform1i(program.u_particles_res, this.particleStateResolution);
-        gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
-        gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
-        gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
 
         // two vertices per particle: the previous and the current position
         gl.drawArrays(gl.LINES, 0, this._numParticles * 2);

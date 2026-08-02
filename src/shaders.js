@@ -1,37 +1,9 @@
-// Shared by the two programs that read the wind grid.
-
-const windLookup = `
-uniform sampler2D u_wind;
-uniform vec2 u_wind_res;
-uniform vec2 u_wind_min;
-uniform vec2 u_wind_max;
-
-// bilinear blend of the 4 surrounding texels, done in highp because hardware
-// filtering uses low-precision weights on many GPUs, which stair-steps the trails
-vec2 lookup_wind(const vec2 uv) {
-    vec2 px = 1.0 / u_wind_res;
-    vec2 t = uv * u_wind_res - 0.5;
-    vec2 f = fract(t);
-    vec2 vc = (floor(t) + 0.5) * px;
-    vec2 tl = texture(u_wind, vc).rg;
-    vec2 tr = texture(u_wind, vc + vec2(px.x, 0)).rg;
-    vec2 bl = texture(u_wind, vc + vec2(0, px.y)).rg;
-    vec2 br = texture(u_wind, vc + px).rg;
-    return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
-}
-
-// wind speed as a 0..1 fraction of the grid's maximum, for coloring
-float speed_fraction(const vec2 velocity) {
-    return length(velocity) / length(u_wind_max);
-}`;
-
 // One line segment per particle, two vertices each: gl_VertexID >> 1 is the index into
-// the state texture, & 1 picks the end. Speed is sampled per endpoint, so the color
-// gradates along the segment.
+// the state texture, & 1 picks the end — 0 trails behind the current position by the
+// step the particle just took. Everything needed is in the state, so no wind lookup.
 
 export const drawVert = `#version 300 es
 precision highp float;
-${windLookup}
 
 uniform sampler2D u_particles;
 uniform int u_particles_res;
@@ -44,9 +16,10 @@ void main() {
         i % u_particles_res,
         i / u_particles_res), 0);
 
-    vec2 p = (gl_VertexID & 1) == 0 ? state.ba : state.rg;
+    vec2 offset = unpackHalf2x16(floatBitsToUint(state.b));
+    vec2 p = state.rg - offset * float(1 - (gl_VertexID & 1));
 
-    v_speed_t = speed_fraction(mix(u_wind_min, u_wind_max, lookup_wind(p)));
+    v_speed_t = state.a;
 
     gl_Position = vec4(2.0 * p.x - 1.0, 1.0 - 2.0 * p.y, 0, 1);
 }`;
@@ -96,11 +69,16 @@ void main() {
 }`;
 
 // Advances every particle by one simulation step, writing the new state into the other
-// state texture: the new position in rg, the position it came from in ba.
+// state texture: the new position in rg, the step it just took packed into b as two
+// half floats, and its wind speed in a.
 
 export const updateFrag = `#version 300 es
 precision highp float;
-${windLookup}
+
+uniform sampler2D u_wind;
+uniform vec2 u_wind_res;
+uniform vec2 u_wind_min;
+uniform vec2 u_wind_max;
 
 uniform sampler2D u_particles;
 uniform float u_rand_seed;
@@ -119,13 +97,28 @@ float rand(const vec2 co) {
     return fract(sin(t) * (rand_constants.z + t));
 }
 
+// bilinear blend of the 4 surrounding texels, done in highp because hardware
+// filtering uses low-precision weights on many GPUs, which stair-steps the trails
+vec2 lookup_wind(const vec2 uv) {
+    vec2 px = 1.0 / u_wind_res;
+    vec2 t = uv * u_wind_res - 0.5;
+    vec2 f = fract(t);
+    vec2 vc = (floor(t) + 0.5) * px;
+    vec2 tl = texture(u_wind, vc).rg;
+    vec2 tr = texture(u_wind, vc + vec2(px.x, 0)).rg;
+    vec2 bl = texture(u_wind, vc + vec2(0, px.y)).rg;
+    vec2 br = texture(u_wind, vc + px).rg;
+    return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
+}
+
 void main() {
     vec2 pos = texture(u_particles, v_tex_pos).rg;
 
     vec2 velocity = mix(u_wind_min, u_wind_max, lookup_wind(pos));
-    float speed_t = speed_fraction(velocity);
+    // 0..1 fraction of the grid's maximum, for coloring
+    float speed_t = length(velocity) / length(u_wind_max);
 
-    // take EPSG:4236 distortion into account for calculating where the particle moved
+    // take EPSG:4326 distortion into account for calculating where the particle moved
     float distortion = cos(radians(pos.y * 180.0 - 90.0));
     vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.0001 * u_speed_factor;
 
@@ -145,9 +138,10 @@ void main() {
 
     pos = mix(pos, random_pos, drop);
 
-    // trailing end of the drawn segment; subtracting the offset rather than keeping the
-    // pre-wrap position runs a date line crossing off the edge, and drops get no segment
-    vec2 prev = pos - offset * (1.0 - drop);
+    // half floats resolve the offset to a small fraction of a pixel. Zeroing it on a drop
+    // gives that particle no segment; keeping it un-wrapped runs a date line crossing off
+    // the edge rather than back across the screen.
+    float packed_offset = uintBitsToFloat(packHalf2x16(offset * (1.0 - drop)));
 
-    fragColor = vec4(pos, prev);
+    fragColor = vec4(pos, packed_offset, speed_t);
 }`;
