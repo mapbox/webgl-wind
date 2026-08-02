@@ -1,13 +1,5 @@
-
-import * as util from './util';
-
-import drawVert from './shaders/draw.vert.glsl';
-import drawFrag from './shaders/draw.frag.glsl';
-
-import quadVert from './shaders/quad.vert.glsl';
-
-import screenFrag from './shaders/screen.frag.glsl';
-import updateFrag from './shaders/update.frag.glsl';
+import * as util from './util.js';
+import {drawVert, drawFrag, quadVert, screenFrag, updateFrag} from './shaders.js';
 
 const defaultRampColors = {
     0.0: '#3288bd',

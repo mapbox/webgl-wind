@@ -1,3 +1,85 @@
+// The particle-drawing program: one point per particle, colored by wind speed.
+
+export const drawVert = `
+precision mediump float;
+
+attribute float a_index;
+
+uniform sampler2D u_particles;
+uniform float u_particles_res;
+
+varying vec2 v_particle_pos;
+
+void main() {
+    vec4 color = texture2D(u_particles, vec2(
+        fract(a_index / u_particles_res),
+        floor(a_index / u_particles_res) / u_particles_res));
+
+    // decode current particle position from the pixel's RGBA value
+    v_particle_pos = vec2(
+        color.r / 255.0 + color.b,
+        color.g / 255.0 + color.a);
+
+    gl_PointSize = 1.0;
+    gl_Position = vec4(2.0 * v_particle_pos.x - 1.0, 1.0 - 2.0 * v_particle_pos.y, 0, 1);
+}`;
+
+export const drawFrag = `
+precision mediump float;
+
+uniform sampler2D u_wind;
+uniform vec2 u_wind_min;
+uniform vec2 u_wind_max;
+uniform sampler2D u_color_ramp;
+
+varying vec2 v_particle_pos;
+
+void main() {
+    vec2 velocity = mix(u_wind_min, u_wind_max, texture2D(u_wind, v_particle_pos).rg);
+    float speed_t = length(velocity) / length(u_wind_max);
+
+    // color ramp is encoded in a 16x16 texture
+    vec2 ramp_pos = vec2(
+        fract(16.0 * speed_t),
+        floor(16.0 * speed_t) / 16.0);
+
+    gl_FragColor = texture2D(u_color_ramp, ramp_pos);
+}`;
+
+// A full-screen quad, shared by the screen and update programs below.
+
+export const quadVert = `
+precision mediump float;
+
+attribute vec2 a_pos;
+
+varying vec2 v_tex_pos;
+
+void main() {
+    v_tex_pos = a_pos;
+    gl_Position = vec4(1.0 - 2.0 * a_pos, 0, 1);
+}`;
+
+// Draws the previous frame's screen texture, fading it out.
+
+export const screenFrag = `
+precision mediump float;
+
+uniform sampler2D u_screen;
+uniform float u_opacity;
+
+varying vec2 v_tex_pos;
+
+void main() {
+    vec4 color = texture2D(u_screen, 1.0 - v_tex_pos);
+    // a hack to guarantee opacity fade out even with a value close to 1.0
+    gl_FragColor = vec4(floor(255.0 * color * u_opacity) / 255.0);
+}`;
+
+// Advances every particle by one simulation step, reading and writing
+// positions encoded as RGBA in the particle state texture.
+
+export const updateFrag = `
 precision highp float;
 
 uniform sampler2D u_particles;
@@ -64,4 +146,4 @@ void main() {
     gl_FragColor = vec4(
         fract(pos * 255.0),
         floor(pos * 255.0) / 255.0);
-}
+}`;
