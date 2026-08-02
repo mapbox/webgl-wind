@@ -55,7 +55,7 @@ out vec2 v_tex_pos;
 
 void main() {
     v_tex_pos = a_pos;
-    gl_Position = vec4(1.0 - 2.0 * a_pos, 0, 1);
+    gl_Position = vec4(2.0 * a_pos - 1.0, 0, 1);
 }`;
 
 // Draws the previous frame's screen texture, fading it out.
@@ -71,7 +71,7 @@ in vec2 v_tex_pos;
 out vec4 fragColor;
 
 void main() {
-    vec4 color = texture(u_screen, 1.0 - v_tex_pos);
+    vec4 color = texture(u_screen, v_tex_pos);
     // a hack to guarantee opacity fade out even with a value close to 1.0
     fragColor = vec4(floor(255.0 * color * u_opacity) / 255.0);
 }`;
@@ -103,12 +103,13 @@ float rand(const vec2 co) {
     return fract(sin(t) * (rand_constants.z + t));
 }
 
-// wind speed lookup; use manual bilinear filtering based on 4 adjacent pixels for smooth interpolation
+// wind speed lookup; blend 4 neighbouring texels in highp, since hardware filtering
+// uses low-precision weights on many GPUs, which stair-steps the trails
 vec2 lookup_wind(const vec2 uv) {
-    // return texture(u_wind, uv).rg; // lower-res hardware filtering
     vec2 px = 1.0 / u_wind_res;
-    vec2 vc = (floor(uv * u_wind_res)) * px;
-    vec2 f = fract(uv * u_wind_res);
+    vec2 t = uv * u_wind_res - 0.5;
+    vec2 f = fract(t);
+    vec2 vc = (floor(t) + 0.5) * px;
     vec2 tl = texture(u_wind, vc).rg;
     vec2 tr = texture(u_wind, vc + vec2(px.x, 0)).rg;
     vec2 bl = texture(u_wind, vc + vec2(0, px.y)).rg;
