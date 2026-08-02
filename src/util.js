@@ -25,44 +25,33 @@ export function createProgram(gl, vertexSource, fragmentSource) {
         throw new Error(gl.getProgramInfoLog(program));
     }
 
-    // no attributes to look up: every vertex shader here is driven by gl_VertexID
-    const wrapper = {program};
-
+    // uniform locations live on the program object itself: gl.uniform1f(program.u_opacity, ...)
     const numUniforms = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
     for (let i = 0; i < numUniforms; i++) {
-        const uniform = gl.getActiveUniform(program, i);
-        wrapper[uniform.name] = gl.getUniformLocation(program, uniform.name);
+        const {name} = gl.getActiveUniform(program, i);
+        program[name] = gl.getUniformLocation(program, name);
     }
 
-    return wrapper;
+    return program;
 }
 
-export function createTexture(gl, filter, data, width, height) {
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
-    if (width) { // raw pixel data, or null for an empty (zero-filled) texture
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
-    } else { // an image, canvas or bitmap
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, data);
-    }
-    gl.bindTexture(gl.TEXTURE_2D, null);
-    return texture;
-}
-
-// RG32F, used for particle positions — full float precision, so no pack/unpack math.
-// Always NEAREST: linear filtering of 32-bit float textures isn't guaranteed.
-export function createFloatTexture(gl, data, width, height) {
+// `data` may be a typed array, an image or bitmap (which supplies its own size), or
+// null to allocate storage only. Filtering is always NEAREST — the shaders that want
+// interpolation do it themselves, and it isn't guaranteed for 32-bit float textures.
+export function createTexture(gl, format, data, width, height) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, width, height, 0, gl.RG, gl.FLOAT, data);
+
+    const float = format === gl.RG32F;
+    gl.texStorage2D(gl.TEXTURE_2D, 1, format, width || data.width, height || data.height);
+    if (data) {
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width || data.width, height || data.height,
+            float ? gl.RG : gl.RGBA, float ? gl.FLOAT : gl.UNSIGNED_BYTE, data);
+    }
     gl.bindTexture(gl.TEXTURE_2D, null);
     return texture;
 }

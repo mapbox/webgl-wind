@@ -30,8 +30,7 @@ export default class WindGL {
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
         this.updateProgram = util.createProgram(gl, quadVert, updateFrag);
 
-        // no vertex buffers or VAOs anywhere: every shader derives its vertices from
-        // gl_VertexID, so the default (null) vertex array is all we need
+        // reused for every off-screen pass, re-pointed at the target texture each time
         this.framebuffer = gl.createFramebuffer();
 
         this.setColorRamp(defaultRampColors);
@@ -42,15 +41,15 @@ export default class WindGL {
         const gl = this.gl;
         gl.deleteTexture(this.backgroundTexture);
         gl.deleteTexture(this.screenTexture);
-        // screen textures to hold the drawn screen for the previous and the current frame
-        this.backgroundTexture = util.createTexture(gl, gl.NEAREST, null, gl.canvas.width, gl.canvas.height);
-        this.screenTexture = util.createTexture(gl, gl.NEAREST, null, gl.canvas.width, gl.canvas.height);
+        // the previous and the current frame, swapped each draw to fade out the trails
+        this.backgroundTexture = util.createTexture(gl, gl.RGBA8, null, gl.canvas.width, gl.canvas.height);
+        this.screenTexture = util.createTexture(gl, gl.RGBA8, null, gl.canvas.width, gl.canvas.height);
     }
 
     setColorRamp(colors) {
         // lookup texture for colorizing the particles according to their speed
         this.gl.deleteTexture(this.colorRampTexture);
-        this.colorRampTexture = util.createTexture(this.gl, this.gl.LINEAR, getColorRamp(colors), 256, 1);
+        this.colorRampTexture = util.createTexture(this.gl, this.gl.RGBA8, getColorRamp(colors), 256, 1);
     }
 
     set numParticles(numParticles) {
@@ -66,9 +65,10 @@ export default class WindGL {
         }
         gl.deleteTexture(this.particleStateTexture0);
         gl.deleteTexture(this.particleStateTexture1);
-        // textures to hold the particle state for the current and the next frame
-        this.particleStateTexture0 = util.createFloatTexture(gl, particleState, particleRes, particleRes);
-        this.particleStateTexture1 = util.createFloatTexture(gl, null, particleRes, particleRes);
+        // particle state for the current and the next frame; the next one is only ever
+        // rendered into, so it just needs storage
+        this.particleStateTexture0 = util.createTexture(gl, gl.RG32F, particleState, particleRes, particleRes);
+        this.particleStateTexture1 = util.createTexture(gl, gl.RG32F, null, particleRes, particleRes);
     }
     get numParticles() {
         return this._numParticles;
@@ -78,7 +78,7 @@ export default class WindGL {
         const gl = this.gl;
         this.windData = windData;
         gl.deleteTexture(this.windTexture);
-        this.windTexture = util.createTexture(gl, gl.LINEAR, windData.image);
+        this.windTexture = util.createTexture(gl, gl.RGBA8, windData.image);
 
         // wrap in S to interpolate across the date line
         gl.bindTexture(gl.TEXTURE_2D, this.windTexture);
@@ -90,7 +90,7 @@ export default class WindGL {
     destroy() {
         const gl = this.gl;
         for (const program of [this.drawProgram, this.screenProgram, this.updateProgram]) {
-            gl.deleteProgram(program.program);
+            gl.deleteProgram(program);
         }
         for (const texture of [this.backgroundTexture, this.screenTexture, this.colorRampTexture,
             this.windTexture, this.particleStateTexture0, this.particleStateTexture1]) {
@@ -113,7 +113,7 @@ export default class WindGL {
 
     drawScreen() {
         const gl = this.gl;
-        // draw the screen into a temporary framebuffer to retain it as the background on the next frame
+        // draw into a texture so this frame can serve as the next frame's background
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.screenTexture, 0);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -137,7 +137,7 @@ export default class WindGL {
     drawTexture(texture, opacity) {
         const gl = this.gl;
         const program = this.screenProgram;
-        gl.useProgram(program.program);
+        gl.useProgram(program);
 
         util.bindTexture(gl, texture, 2);
         gl.uniform1i(program.u_screen, 2);
@@ -149,7 +149,7 @@ export default class WindGL {
     drawParticles() {
         const gl = this.gl;
         const program = this.drawProgram;
-        gl.useProgram(program.program);
+        gl.useProgram(program);
 
         util.bindTexture(gl, this.colorRampTexture, 2);
 
@@ -158,6 +158,7 @@ export default class WindGL {
         gl.uniform1i(program.u_color_ramp, 2);
 
         gl.uniform1i(program.u_particles_res, this.particleStateResolution);
+        gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
         gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
         gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
 
@@ -171,7 +172,7 @@ export default class WindGL {
         gl.viewport(0, 0, this.particleStateResolution, this.particleStateResolution);
 
         const program = this.updateProgram;
-        gl.useProgram(program.program);
+        gl.useProgram(program);
 
         gl.uniform1i(program.u_wind, 0);
         gl.uniform1i(program.u_particles, 1);

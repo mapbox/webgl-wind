@@ -1,45 +1,68 @@
-// The particle-drawing program: one point per particle, colored by wind speed.
-// Positions come straight out of the particle state texture — no vertex attributes,
-// the point index is gl_VertexID.
+// Shared by the two programs that read the wind grid.
+
+const windLookup = `
+uniform sampler2D u_wind;
+uniform vec2 u_wind_res;
+uniform vec2 u_wind_min;
+uniform vec2 u_wind_max;
+
+// bilinear blend of the 4 surrounding texels, done in highp because hardware
+// filtering uses low-precision weights on many GPUs, which stair-steps the trails
+vec2 lookup_wind(const vec2 uv) {
+    vec2 px = 1.0 / u_wind_res;
+    vec2 t = uv * u_wind_res - 0.5;
+    vec2 f = fract(t);
+    vec2 vc = (floor(t) + 0.5) * px;
+    vec2 tl = texture(u_wind, vc).rg;
+    vec2 tr = texture(u_wind, vc + vec2(px.x, 0)).rg;
+    vec2 bl = texture(u_wind, vc + vec2(0, px.y)).rg;
+    vec2 br = texture(u_wind, vc + px).rg;
+    return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
+}
+
+// wind speed as a 0..1 fraction of the grid's maximum, for coloring
+float speed_fraction(const vec2 velocity) {
+    return length(velocity) / length(u_wind_max);
+}`;
+
+// One point per particle, colored by wind speed. gl_VertexID is the particle index
+// into the state texture, which holds the position.
 
 export const drawVert = `#version 300 es
-precision mediump float;
+precision highp float;
+${windLookup}
 
 uniform sampler2D u_particles;
 uniform int u_particles_res;
 
-out vec2 v_particle_pos;
+out float v_speed_t;
 
 void main() {
-    v_particle_pos = texelFetch(u_particles, ivec2(
+    vec2 pos = texelFetch(u_particles, ivec2(
         gl_VertexID % u_particles_res,
         gl_VertexID / u_particles_res), 0).rg;
 
+    v_speed_t = speed_fraction(mix(u_wind_min, u_wind_max, lookup_wind(pos)));
+
     gl_PointSize = 1.0;
-    gl_Position = vec4(2.0 * v_particle_pos.x - 1.0, 1.0 - 2.0 * v_particle_pos.y, 0, 1);
+    gl_Position = vec4(2.0 * pos.x - 1.0, 1.0 - 2.0 * pos.y, 0, 1);
 }`;
 
 export const drawFrag = `#version 300 es
 precision mediump float;
 
-uniform sampler2D u_wind;
-uniform vec2 u_wind_min;
-uniform vec2 u_wind_max;
 uniform sampler2D u_color_ramp;
 
-in vec2 v_particle_pos;
+in float v_speed_t;
 
 out vec4 fragColor;
 
 void main() {
-    vec2 velocity = mix(u_wind_min, u_wind_max, texture(u_wind, v_particle_pos).rg);
-    float speed_t = length(velocity) / length(u_wind_max);
-
-    fragColor = texture(u_color_ramp, vec2(speed_t, 0.5));
+    fragColor = texture(u_color_ramp, vec2(v_speed_t, 0.5));
 }`;
 
-// A full-screen quad, shared by the screen and update programs below. Drawn as a
-// 4-vertex triangle strip with no attributes: gl_VertexID gives (0,0) (1,0) (0,1) (1,1).
+// A full-screen quad, shared by the screen and update programs below: drawn as a
+// 4-vertex triangle strip, gl_VertexID gives (0,0) (1,0) (0,1) (1,1).
 
 export const quadVert = `#version 300 es
 precision mediump float;
@@ -69,17 +92,14 @@ void main() {
     fragColor = vec4(floor(255.0 * color * u_opacity) / 255.0);
 }`;
 
-// Advances every particle by one simulation step. Positions live in an RG32F texture,
-// so they're read and written as plain floats.
+// Advances every particle by one simulation step, writing the new positions into the
+// other state texture.
 
 export const updateFrag = `#version 300 es
 precision highp float;
+${windLookup}
 
 uniform sampler2D u_particles;
-uniform sampler2D u_wind;
-uniform vec2 u_wind_res;
-uniform vec2 u_wind_min;
-uniform vec2 u_wind_max;
 uniform float u_rand_seed;
 uniform float u_speed_factor;
 uniform float u_drop_rate;
@@ -96,25 +116,11 @@ float rand(const vec2 co) {
     return fract(sin(t) * (rand_constants.z + t));
 }
 
-// wind speed lookup; blend 4 neighbouring texels in highp, since hardware filtering
-// uses low-precision weights on many GPUs, which stair-steps the trails
-vec2 lookup_wind(const vec2 uv) {
-    vec2 px = 1.0 / u_wind_res;
-    vec2 t = uv * u_wind_res - 0.5;
-    vec2 f = fract(t);
-    vec2 vc = (floor(t) + 0.5) * px;
-    vec2 tl = texture(u_wind, vc).rg;
-    vec2 tr = texture(u_wind, vc + vec2(px.x, 0)).rg;
-    vec2 bl = texture(u_wind, vc + vec2(0, px.y)).rg;
-    vec2 br = texture(u_wind, vc + px).rg;
-    return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
-}
-
 void main() {
     vec2 pos = texture(u_particles, v_tex_pos).rg;
 
     vec2 velocity = mix(u_wind_min, u_wind_max, lookup_wind(pos));
-    float speed_t = length(velocity) / length(u_wind_max);
+    float speed_t = speed_fraction(velocity);
 
     // take EPSG:4236 distortion into account for calculating where the particle moved
     float distortion = cos(radians(pos.y * 180.0 - 90.0));
