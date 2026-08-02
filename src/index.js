@@ -30,18 +30,8 @@ export default class WindGL {
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
         this.updateProgram = util.createProgram(gl, quadVert, updateFrag);
 
-        this.quadBuffer = util.createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]));
-
-        // a_pos is bound to location 0 in the shader, so one VAO feeds both quad programs
-        this.quadVAO = gl.createVertexArray();
-        gl.bindVertexArray(this.quadVAO);
-        util.bindAttribute(gl, this.quadBuffer, 0, 2);
-
-        // the particle draw program has no attributes at all — it indexes the state
-        // texture by gl_VertexID — but it still needs a VAO with nothing enabled
-        this.particleVAO = gl.createVertexArray();
-        gl.bindVertexArray(null);
-
+        // no vertex buffers or VAOs anywhere: every shader derives its vertices from
+        // gl_VertexID, so the default (null) vertex array is all we need
         this.framebuffer = gl.createFramebuffer();
 
         this.setColorRamp(defaultRampColors);
@@ -60,7 +50,7 @@ export default class WindGL {
     setColorRamp(colors) {
         // lookup texture for colorizing the particles according to their speed
         this.gl.deleteTexture(this.colorRampTexture);
-        this.colorRampTexture = util.createTexture(this.gl, this.gl.LINEAR, getColorRamp(colors), 16, 16);
+        this.colorRampTexture = util.createTexture(this.gl, this.gl.LINEAR, getColorRamp(colors), 256, 1);
     }
 
     set numParticles(numParticles) {
@@ -85,9 +75,15 @@ export default class WindGL {
     }
 
     setWind(windData) {
+        const gl = this.gl;
         this.windData = windData;
-        this.gl.deleteTexture(this.windTexture);
-        this.windTexture = util.createTexture(this.gl, this.gl.LINEAR, windData.image);
+        gl.deleteTexture(this.windTexture);
+        this.windTexture = util.createTexture(gl, gl.LINEAR, windData.image);
+
+        // wrap in S to interpolate across the date line
+        gl.bindTexture(gl.TEXTURE_2D, this.windTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     // releases every GL resource; the instance is unusable afterwards
@@ -100,9 +96,6 @@ export default class WindGL {
             this.windTexture, this.particleStateTexture0, this.particleStateTexture1]) {
             gl.deleteTexture(texture);
         }
-        gl.deleteVertexArray(this.quadVAO);
-        gl.deleteVertexArray(this.particleVAO);
-        gl.deleteBuffer(this.quadBuffer);
         gl.deleteFramebuffer(this.framebuffer);
     }
 
@@ -121,13 +114,14 @@ export default class WindGL {
     drawScreen() {
         const gl = this.gl;
         // draw the screen into a temporary framebuffer to retain it as the background on the next frame
-        util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.screenTexture, 0);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
         this.drawTexture(this.backgroundTexture, this.fadeOpacity);
         this.drawParticles();
 
-        util.bindFramebuffer(gl, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         // enable blending to support drawing on top of an existing background (e.g. a map)
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -145,7 +139,6 @@ export default class WindGL {
         const program = this.screenProgram;
         gl.useProgram(program.program);
 
-        gl.bindVertexArray(this.quadVAO);
         util.bindTexture(gl, texture, 2);
         gl.uniform1i(program.u_screen, 2);
         gl.uniform1f(program.u_opacity, opacity);
@@ -158,7 +151,6 @@ export default class WindGL {
         const program = this.drawProgram;
         gl.useProgram(program.program);
 
-        gl.bindVertexArray(this.particleVAO);
         util.bindTexture(gl, this.colorRampTexture, 2);
 
         gl.uniform1i(program.u_wind, 0);
@@ -174,13 +166,12 @@ export default class WindGL {
 
     updateParticles() {
         const gl = this.gl;
-        util.bindFramebuffer(gl, this.framebuffer, this.particleStateTexture1);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.particleStateTexture1, 0);
         gl.viewport(0, 0, this.particleStateResolution, this.particleStateResolution);
 
         const program = this.updateProgram;
         gl.useProgram(program.program);
-
-        gl.bindVertexArray(this.quadVAO);
 
         gl.uniform1i(program.u_wind, 0);
         gl.uniform1i(program.u_particles, 1);

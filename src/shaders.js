@@ -35,27 +35,20 @@ void main() {
     vec2 velocity = mix(u_wind_min, u_wind_max, texture(u_wind, v_particle_pos).rg);
     float speed_t = length(velocity) / length(u_wind_max);
 
-    // color ramp is encoded in a 16x16 texture
-    vec2 ramp_pos = vec2(
-        fract(16.0 * speed_t),
-        floor(16.0 * speed_t) / 16.0);
-
-    fragColor = texture(u_color_ramp, ramp_pos);
+    fragColor = texture(u_color_ramp, vec2(speed_t, 0.5));
 }`;
 
-// A full-screen quad, shared by the screen and update programs below. The explicit
-// location lets a single VAO feed both programs.
+// A full-screen quad, shared by the screen and update programs below. Drawn as a
+// 4-vertex triangle strip with no attributes: gl_VertexID gives (0,0) (1,0) (0,1) (1,1).
 
 export const quadVert = `#version 300 es
 precision mediump float;
 
-layout(location = 0) in vec2 a_pos;
-
 out vec2 v_tex_pos;
 
 void main() {
-    v_tex_pos = a_pos;
-    gl_Position = vec4(2.0 * a_pos - 1.0, 0, 1);
+    v_tex_pos = vec2(gl_VertexID & 1, gl_VertexID >> 1);
+    gl_Position = vec4(2.0 * v_tex_pos - 1.0, 0, 1);
 }`;
 
 // Draws the previous frame's screen texture, fading it out.

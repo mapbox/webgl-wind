@@ -25,13 +25,9 @@ export function createProgram(gl, vertexSource, fragmentSource) {
         throw new Error(gl.getProgramInfoLog(program));
     }
 
+    // no attributes to look up: every vertex shader here is driven by gl_VertexID
     const wrapper = {program};
 
-    const numAttributes = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
-    for (let i = 0; i < numAttributes; i++) {
-        const attribute = gl.getActiveAttrib(program, i);
-        wrapper[attribute.name] = gl.getAttribLocation(program, attribute.name);
-    }
     const numUniforms = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
     for (let i = 0; i < numUniforms; i++) {
         const uniform = gl.getActiveUniform(program, i);
@@ -74,24 +70,4 @@ export function createFloatTexture(gl, data, width, height) {
 export function bindTexture(gl, texture, unit) {
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.bindTexture(gl.TEXTURE_2D, texture);
-}
-
-export function createBuffer(gl, data) {
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-    return buffer;
-}
-
-export function bindAttribute(gl, buffer, attribute, numComponents) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.enableVertexAttribArray(attribute);
-    gl.vertexAttribPointer(attribute, numComponents, gl.FLOAT, false, 0, 0);
-}
-
-export function bindFramebuffer(gl, framebuffer, texture) {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    if (texture) {
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
-    }
 }
