@@ -156,6 +156,7 @@ export default class WindGL {
         gl.uniform1i(program.u_color_ramp, 2);
 
         gl.uniform1i(program.u_particles_res, this.particleStateResolution);
+        gl.uniform2f(program.u_resolution, gl.canvas.width, gl.canvas.height);
 
         // two vertices per particle: the previous and the current position
         gl.drawArrays(gl.LINES, 0, this._numParticles * 2);

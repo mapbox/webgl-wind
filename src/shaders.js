@@ -7,6 +7,7 @@ precision highp float;
 
 uniform sampler2D u_particles;
 uniform int u_particles_res;
+uniform vec2 u_resolution;
 
 out float v_speed_t;
 
@@ -16,8 +17,12 @@ void main() {
         i % u_particles_res,
         i / u_particles_res), 0);
 
-    vec2 offset = unpackHalf2x16(floatBitsToUint(state.b));
-    vec2 p = state.rg - offset * float(1 - (gl_VertexID & 1));
+    // stretch to a pixel: shorter segments rasterize to nothing, dropping slow particles
+    vec2 offset = unpackHalf2x16(floatBitsToUint(state.b)) * u_resolution;
+    float len = length(offset);
+    if (len < 1.0) offset = len > 0.0 ? offset / len : vec2(1, 0);
+
+    vec2 p = state.rg - offset / u_resolution * float(1 - (gl_VertexID & 1));
 
     v_speed_t = state.a;
 
