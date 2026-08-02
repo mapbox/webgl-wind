@@ -2,14 +2,15 @@ import {GUI} from 'https://cdn.jsdelivr.net/npm/lil-gui@0.21.0/dist/lil-gui.esm.
 
 import WindGL from '../src/index.js';
 
-// wind data files, one per 6 hours starting from 2016-11-20T00:00Z
-const windFiles = [
-    '2016112000', '2016112006', '2016112012', '2016112018', '2016112100',
-    '2016112106', '2016112112', '2016112118', '2016112200'
-];
+// wind data files, one per 6 hours, written by data/prepare.js
+const windFiles = await fetch('wind/index.json').then(res => res.json());
+
+// the slider is an hour offset from the first frame, e.g. "2026-07-31T12Z+h"
+const [, year, month, day, hour] = windFiles[0].match(/(\d{4})(\d\d)(\d\d)(\d\d)/);
+const sliderLabel = `${year}-${month}-${day}T${hour}Z+h`;
 
 const meta = {
-    '2016-11-20+h': 0,
+    hours: 0,
     'retina resolution': true,
     'github.com/mapbox/webgl-wind'() {
         window.location = 'https://github.com/mapbox/webgl-wind';
@@ -39,7 +40,7 @@ gui.add(wind, 'fadeOpacity', 0.96, 0.999).step(0.001).updateDisplay();
 gui.add(wind, 'speedFactor', 0.05, 1.0);
 gui.add(wind, 'dropRate', 0, 0.1);
 gui.add(wind, 'dropRateBump', 0, 0.2);
-gui.add(meta, '2016-11-20+h', 0, 48, 6).onFinishChange(updateWind);
+gui.add(meta, 'hours', 0, (windFiles.length - 1) * 6, 6).name(sliderLabel).onFinishChange(updateWind);
 gui.add(meta, 'retina resolution').onFinishChange(updateRetina);
 gui.add(meta, 'github.com/mapbox/webgl-wind');
 

@@ -23,6 +23,19 @@ npm start
 
 ### Downloading weather data
 
-1. Install [ecCodes](https://confluence.ecmwf.int//display/ECC/ecCodes+Home) (e.g. `brew install eccodes`).
-2. Edit constants in `data/download.sh` for desired date, time and resolution.
-3. Run `./data/download.sh <dir>` to generate wind data files (`png` and `json`) for use with the library.
+```bash
+node data/prepare.js wind 9
+```
+
+This writes a `png` + `json` pair per frame for use with `setWind`, taking 10 m wind
+from the [NCEP GFS](https://www.ncei.noaa.gov/products/weather-climate-models/global-forecast)
+1° model. Frames are 6 hours apart, ending at the most recent one available; the second
+argument is how many to fetch (default 1).
+
+It also writes an `index.json` listing the frames, which is what the demo reads — point
+the script at `demo/wind` to refresh the demo with current weather. The checked-in 2016
+data is kept because it happens to have more dramatic wind than a typical day.
+
+Data comes from [Unidata's THREDDS server](https://thredds.ucar.edu/) over OPeNDAP's
+ASCII output — plain text, so no GRIB tooling is needed. Its aggregation only reaches
+back about a month.
