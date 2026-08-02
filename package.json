@@ -2,14 +2,18 @@
   "name": "webgl-wind",
   "type": "module",
   "version": "0.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A WebGL-powered visualization of wind power",
+  "main": "src/index.js",
+  "exports": "./src/index.js",
+  "files": ["src"],
   "scripts": {
     "test": "eslint .",
     "start": "python3 -m http.server 3000"
   },
-  "keywords": [],
-  "author": "Vladimir Agafonkin",
+  "repository": "mapbox/webgl-wind",
+  "homepage": "https://mapbox.github.io/webgl-wind/demo/",
+  "keywords": ["webgl", "wind", "particles", "visualization", "weather"],
+  "author": "Volodymyr Agafonkin",
   "license": "ISC",
   "devDependencies": {
     "eslint": "^10.8.0",
