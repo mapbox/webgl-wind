@@ -18,10 +18,12 @@ const meta = {
 };
 
 const canvas = document.getElementById('canvas');
-const pxRatio = Math.max(Math.floor(window.devicePixelRatio) || 1, 2);
-resizeCanvas();
+const coastCanvas = document.getElementById('coastline');
 
-const gl = canvas.getContext('webgl', {antialiasing: false});
+// declared up here because the resize observer below can run before it's loaded
+let coastline;
+
+const gl = canvas.getContext('webgl', {antialias: false});
 
 const wind = window.wind = new WindGL(gl);
 wind.numParticles = 65536;
@@ -41,20 +43,29 @@ gui.add(wind, 'speedFactor', 0.05, 1.0);
 gui.add(wind, 'dropRate', 0, 0.1);
 gui.add(wind, 'dropRateBump', 0, 0.2);
 gui.add(meta, 'hours', 0, (windFiles.length - 1) * 6, 6).name(sliderLabel).onFinishChange(updateWind);
-gui.add(meta, 'retina resolution').onFinishChange(updateRetina);
+gui.add(meta, 'retina resolution').onFinishChange(resize);
 gui.add(meta, 'github.com/mapbox/webgl-wind');
 
 updateWind(0);
 
-function resizeCanvas() {
-    const ratio = meta['retina resolution'] ? pxRatio : 1;
+// read afresh each time — it changes when the window moves between displays or the
+// page is zoomed
+const pixelRatio = () => (meta['retina resolution'] ? window.devicePixelRatio : 1);
+
+// both canvases are 100vw/100vh, so one observer covers them; it also fires once on
+// setup, which is what does the initial sizing. Setting canvas.width doesn't affect
+// the CSS box, so this can't loop.
+new ResizeObserver(resize).observe(canvas);
+
+function resize() {
+    const ratio = pixelRatio();
     canvas.width = canvas.clientWidth * ratio;
     canvas.height = canvas.clientHeight * ratio;
-}
-
-function updateRetina() {
-    resizeCanvas();
     wind.resize();
+
+    coastCanvas.width = coastCanvas.clientWidth * ratio;
+    coastCanvas.height = coastCanvas.clientHeight * ratio;
+    drawCoastline();
 }
 
 async function updateWind(hours) {
@@ -66,23 +77,28 @@ async function updateWind(hours) {
     wind.setWind({...windData, image});
 }
 
-const coastline = await fetch('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastline.geojson').then(res => res.json());
+fetch('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastline.geojson')
+    .then(res => res.json())
+    .then((data) => {
+        coastline = data;
+        drawCoastline();
+    });
 
-const coastCanvas = document.getElementById('coastline');
-coastCanvas.width = coastCanvas.clientWidth * pxRatio;
-coastCanvas.height = coastCanvas.clientHeight * pxRatio;
+function drawCoastline() {
+    if (!coastline) return; // still loading — resize() or the fetch will call us again
 
-const ctx = coastCanvas.getContext('2d');
-ctx.lineWidth = pxRatio;
-ctx.lineJoin = ctx.lineCap = 'round';
-ctx.strokeStyle = 'white';
-ctx.beginPath();
+    const ctx = coastCanvas.getContext('2d');
+    ctx.lineWidth = pixelRatio();
+    ctx.lineJoin = ctx.lineCap = 'round';
+    ctx.strokeStyle = 'white';
+    ctx.beginPath();
 
-for (const {geometry} of coastline.features) {
-    for (const [i, [lng, lat]] of geometry.coordinates.entries()) {
-        ctx[i ? 'lineTo' : 'moveTo'](
-            (lng + 180) * coastCanvas.width / 360,
-            (-lat + 90) * coastCanvas.height / 180);
+    for (const {geometry} of coastline.features) {
+        for (const [i, [lng, lat]] of geometry.coordinates.entries()) {
+            ctx[i ? 'lineTo' : 'moveTo'](
+                (lng + 180) * coastCanvas.width / 360,
+                (-lat + 90) * coastCanvas.height / 180);
+        }
     }
+    ctx.stroke();
 }
-ctx.stroke();
