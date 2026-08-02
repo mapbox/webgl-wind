@@ -25,8 +25,9 @@ float speed_fraction(const vec2 velocity) {
     return length(velocity) / length(u_wind_max);
 }`;
 
-// One point per particle, colored by wind speed. gl_VertexID is the particle index
-// into the state texture, which holds the position.
+// One line segment per particle, two vertices each: gl_VertexID >> 1 is the index into
+// the state texture, & 1 picks the end. Speed is sampled per endpoint, so the color
+// gradates along the segment.
 
 export const drawVert = `#version 300 es
 precision highp float;
@@ -38,14 +39,16 @@ uniform int u_particles_res;
 out float v_speed_t;
 
 void main() {
-    vec2 pos = texelFetch(u_particles, ivec2(
-        gl_VertexID % u_particles_res,
-        gl_VertexID / u_particles_res), 0).rg;
+    int i = gl_VertexID >> 1;
+    vec4 state = texelFetch(u_particles, ivec2(
+        i % u_particles_res,
+        i / u_particles_res), 0);
 
-    v_speed_t = speed_fraction(mix(u_wind_min, u_wind_max, lookup_wind(pos)));
+    vec2 p = (gl_VertexID & 1) == 0 ? state.ba : state.rg;
 
-    gl_PointSize = 1.0;
-    gl_Position = vec4(2.0 * pos.x - 1.0, 1.0 - 2.0 * pos.y, 0, 1);
+    v_speed_t = speed_fraction(mix(u_wind_min, u_wind_max, lookup_wind(p)));
+
+    gl_Position = vec4(2.0 * p.x - 1.0, 1.0 - 2.0 * p.y, 0, 1);
 }`;
 
 export const drawFrag = `#version 300 es
@@ -92,8 +95,8 @@ void main() {
     fragColor = vec4(floor(255.0 * color * u_opacity) / 255.0);
 }`;
 
-// Advances every particle by one simulation step, writing the new positions into the
-// other state texture.
+// Advances every particle by one simulation step, writing the new state into the other
+// state texture: the new position in rg, the position it came from in ba.
 
 export const updateFrag = `#version 300 es
 precision highp float;
@@ -140,5 +143,11 @@ void main() {
         rand(seed + 1.3),
         rand(seed + 2.1));
 
-    fragColor = vec4(mix(pos, random_pos, drop), 0, 1);
+    pos = mix(pos, random_pos, drop);
+
+    // trailing end of the drawn segment; subtracting the offset rather than keeping the
+    // pre-wrap position runs a date line crossing off the edge, and drops get no segment
+    vec2 prev = pos - offset * (1.0 - drop);
+
+    fragColor = vec4(pos, prev);
 }`;

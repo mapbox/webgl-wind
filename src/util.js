@@ -35,22 +35,22 @@ export function createProgram(gl, vertexSource, fragmentSource) {
     return program;
 }
 
-// `data` may be a typed array, an image or bitmap (which supplies its own size), or
-// null to allocate storage only. Filtering is always NEAREST — the shaders that want
-// interpolation do it themselves, and it isn't guaranteed for 32-bit float textures.
-export function createTexture(gl, format, data, width, height) {
+// `data` may be a typed array, an image or bitmap, or null to allocate storage only.
+// Filtering is always NEAREST: shaders that want interpolation do it themselves, and it
+// isn't guaranteed for 32-bit float textures anyway. Only S can wrap — a wrapping T
+// would blend the poles into each other.
+export function createTexture(gl, format, data, width, height, wrapS = gl.CLAMP_TO_EDGE) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
-    const float = format === gl.RG32F;
-    gl.texStorage2D(gl.TEXTURE_2D, 1, format, width || data.width, height || data.height);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, format, width, height);
     if (data) {
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width || data.width, height || data.height,
-            float ? gl.RG : gl.RGBA, float ? gl.FLOAT : gl.UNSIGNED_BYTE, data);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA,
+            format === gl.RGBA32F ? gl.FLOAT : gl.UNSIGNED_BYTE, data);
     }
     gl.bindTexture(gl.TEXTURE_2D, null);
     return texture;

@@ -16,7 +16,7 @@ export default class WindGL {
     constructor(gl) {
         this.gl = gl;
 
-        // needed to render into the RG32F particle state textures
+        // needed to render into the RGBA32F particle state textures
         if (!gl.getExtension('EXT_color_buffer_float')) {
             throw new Error('WebGL2 EXT_color_buffer_float is required');
         }
@@ -55,20 +55,23 @@ export default class WindGL {
     set numParticles(numParticles) {
         const gl = this.gl;
 
-        // a square texture where each pixel holds one particle position as two floats
+        // a square texture where each pixel holds one particle: current position in rg,
+        // the one it came from in ba
         const particleRes = this.particleStateResolution = Math.ceil(Math.sqrt(numParticles));
         this._numParticles = particleRes * particleRes;
 
-        const particleState = new Float32Array(this._numParticles * 2);
-        for (let i = 0; i < particleState.length; i++) {
-            particleState[i] = Math.random(); // randomize the initial particle positions
+        const particleState = new Float32Array(this._numParticles * 4);
+        for (let i = 0; i < particleState.length; i += 4) {
+            // random initial positions, with no segment to draw yet
+            particleState[i] = particleState[i + 2] = Math.random();
+            particleState[i + 1] = particleState[i + 3] = Math.random();
         }
         gl.deleteTexture(this.particleStateTexture0);
         gl.deleteTexture(this.particleStateTexture1);
         // particle state for the current and the next frame; the next one is only ever
         // rendered into, so it just needs storage
-        this.particleStateTexture0 = util.createTexture(gl, gl.RG32F, particleState, particleRes, particleRes);
-        this.particleStateTexture1 = util.createTexture(gl, gl.RG32F, null, particleRes, particleRes);
+        this.particleStateTexture0 = util.createTexture(gl, gl.RGBA32F, particleState, particleRes, particleRes);
+        this.particleStateTexture1 = util.createTexture(gl, gl.RGBA32F, null, particleRes, particleRes);
     }
     get numParticles() {
         return this._numParticles;
@@ -78,12 +81,8 @@ export default class WindGL {
         const gl = this.gl;
         this.windData = windData;
         gl.deleteTexture(this.windTexture);
-        this.windTexture = util.createTexture(gl, gl.RGBA8, windData.image);
-
-        // wrap in S to interpolate across the date line
-        gl.bindTexture(gl.TEXTURE_2D, this.windTexture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        // wraps in S to interpolate across the date line
+        this.windTexture = util.createTexture(gl, gl.RGBA8, windData.image, windData.width, windData.height, gl.REPEAT);
     }
 
     // releases every GL resource; the instance is unusable afterwards
@@ -162,7 +161,8 @@ export default class WindGL {
         gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
         gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
 
-        gl.drawArrays(gl.POINTS, 0, this._numParticles);
+        // two vertices per particle: the previous and the current position
+        gl.drawArrays(gl.LINES, 0, this._numParticles * 2);
     }
 
     updateParticles() {
