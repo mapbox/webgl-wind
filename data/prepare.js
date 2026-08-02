@@ -1,10 +1,9 @@
-const PNG = require('pngjs').PNG;
-const fs = require('fs');
+import {PNG} from 'pngjs';
+import fs from 'node:fs';
 
 const data = JSON.parse(fs.readFileSync('tmp.json'));
 const name = process.argv[2];
-const u = data.u;
-const v = data.v;
+const {u, v} = data;
 
 const width = u.Ni;
 const height = u.Nj - 1;
@@ -27,7 +26,7 @@ for (let y = 0; y < height; y++) {
     }
 }
 
-png.pack().pipe(fs.createWriteStream(`${name}.png`));
+fs.writeFileSync(`${name}.png`, PNG.sync.write(png));
 
 fs.writeFileSync(`${name}.json`, `${JSON.stringify({
     source: 'http://nomads.ncep.noaa.gov',
@@ -41,5 +40,5 @@ fs.writeFileSync(`${name}.json`, `${JSON.stringify({
 }, null, 2)}\n`);
 
 function formatDate(date, time) {
-    return `${date.substr(0, 4)}-${date.substr(4, 2)}-${date.substr(6, 2)}T${time < 10 ? `0${time}` : time}:00Z`;
+    return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}T${`${time}`.padStart(2, '0')}:00Z`;
 }

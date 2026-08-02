@@ -25,7 +25,7 @@ export default class WindGL {
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
         this.updateProgram = util.createProgram(gl, quadVert, updateFrag);
 
-        this.quadBuffer = util.createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]));
+        this.quadBuffer = util.createBuffer(gl, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]));
         this.framebuffer = gl.createFramebuffer();
 
         this.setColorRamp(defaultRampColors);
@@ -34,10 +34,9 @@ export default class WindGL {
 
     resize() {
         const gl = this.gl;
-        const emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
         // screen textures to hold the drawn screen for the previous and the current frame
-        this.backgroundTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
-        this.screenTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+        this.backgroundTexture = util.createTexture(gl, gl.NEAREST, null, gl.canvas.width, gl.canvas.height);
+        this.screenTexture = util.createTexture(gl, gl.NEAREST, null, gl.canvas.width, gl.canvas.height);
     }
 
     setColorRamp(colors) {
@@ -117,7 +116,7 @@ export default class WindGL {
         gl.uniform1i(program.u_screen, 2);
         gl.uniform1f(program.u_opacity, opacity);
 
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
 
     drawParticles() {
@@ -160,7 +159,7 @@ export default class WindGL {
         gl.uniform1f(program.u_drop_rate, this.dropRate);
         gl.uniform1f(program.u_drop_rate_bump, this.dropRateBump);
 
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
         // swap the particle state textures so the new one becomes the current one
         const temp = this.particleStateTexture0;
