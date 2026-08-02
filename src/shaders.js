@@ -1,30 +1,25 @@
 // The particle-drawing program: one point per particle, colored by wind speed.
+// Positions come straight out of the particle state texture — no vertex attributes,
+// the point index is gl_VertexID.
 
-export const drawVert = `
+export const drawVert = `#version 300 es
 precision mediump float;
 
-attribute float a_index;
-
 uniform sampler2D u_particles;
-uniform float u_particles_res;
+uniform int u_particles_res;
 
-varying vec2 v_particle_pos;
+out vec2 v_particle_pos;
 
 void main() {
-    vec4 color = texture2D(u_particles, vec2(
-        fract(a_index / u_particles_res),
-        floor(a_index / u_particles_res) / u_particles_res));
-
-    // decode current particle position from the pixel's RGBA value
-    v_particle_pos = vec2(
-        color.r / 255.0 + color.b,
-        color.g / 255.0 + color.a);
+    v_particle_pos = texelFetch(u_particles, ivec2(
+        gl_VertexID % u_particles_res,
+        gl_VertexID / u_particles_res), 0).rg;
 
     gl_PointSize = 1.0;
     gl_Position = vec4(2.0 * v_particle_pos.x - 1.0, 1.0 - 2.0 * v_particle_pos.y, 0, 1);
 }`;
 
-export const drawFrag = `
+export const drawFrag = `#version 300 es
 precision mediump float;
 
 uniform sampler2D u_wind;
@@ -32,10 +27,12 @@ uniform vec2 u_wind_min;
 uniform vec2 u_wind_max;
 uniform sampler2D u_color_ramp;
 
-varying vec2 v_particle_pos;
+in vec2 v_particle_pos;
+
+out vec4 fragColor;
 
 void main() {
-    vec2 velocity = mix(u_wind_min, u_wind_max, texture2D(u_wind, v_particle_pos).rg);
+    vec2 velocity = mix(u_wind_min, u_wind_max, texture(u_wind, v_particle_pos).rg);
     float speed_t = length(velocity) / length(u_wind_max);
 
     // color ramp is encoded in a 16x16 texture
@@ -43,17 +40,18 @@ void main() {
         fract(16.0 * speed_t),
         floor(16.0 * speed_t) / 16.0);
 
-    gl_FragColor = texture2D(u_color_ramp, ramp_pos);
+    fragColor = texture(u_color_ramp, ramp_pos);
 }`;
 
-// A full-screen quad, shared by the screen and update programs below.
+// A full-screen quad, shared by the screen and update programs below. The explicit
+// location lets a single VAO feed both programs.
 
-export const quadVert = `
+export const quadVert = `#version 300 es
 precision mediump float;
 
-attribute vec2 a_pos;
+layout(location = 0) in vec2 a_pos;
 
-varying vec2 v_tex_pos;
+out vec2 v_tex_pos;
 
 void main() {
     v_tex_pos = a_pos;
@@ -62,24 +60,26 @@ void main() {
 
 // Draws the previous frame's screen texture, fading it out.
 
-export const screenFrag = `
+export const screenFrag = `#version 300 es
 precision mediump float;
 
 uniform sampler2D u_screen;
 uniform float u_opacity;
 
-varying vec2 v_tex_pos;
+in vec2 v_tex_pos;
+
+out vec4 fragColor;
 
 void main() {
-    vec4 color = texture2D(u_screen, 1.0 - v_tex_pos);
+    vec4 color = texture(u_screen, 1.0 - v_tex_pos);
     // a hack to guarantee opacity fade out even with a value close to 1.0
-    gl_FragColor = vec4(floor(255.0 * color * u_opacity) / 255.0);
+    fragColor = vec4(floor(255.0 * color * u_opacity) / 255.0);
 }`;
 
-// Advances every particle by one simulation step, reading and writing
-// positions encoded as RGBA in the particle state texture.
+// Advances every particle by one simulation step. Positions live in an RG32F texture,
+// so they're read and written as plain floats.
 
-export const updateFrag = `
+export const updateFrag = `#version 300 es
 precision highp float;
 
 uniform sampler2D u_particles;
@@ -92,7 +92,9 @@ uniform float u_speed_factor;
 uniform float u_drop_rate;
 uniform float u_drop_rate_bump;
 
-varying vec2 v_tex_pos;
+in vec2 v_tex_pos;
+
+out vec4 fragColor;
 
 // pseudo-random generator
 const vec3 rand_constants = vec3(12.9898, 78.233, 4375.85453);
@@ -103,22 +105,19 @@ float rand(const vec2 co) {
 
 // wind speed lookup; use manual bilinear filtering based on 4 adjacent pixels for smooth interpolation
 vec2 lookup_wind(const vec2 uv) {
-    // return texture2D(u_wind, uv).rg; // lower-res hardware filtering
+    // return texture(u_wind, uv).rg; // lower-res hardware filtering
     vec2 px = 1.0 / u_wind_res;
     vec2 vc = (floor(uv * u_wind_res)) * px;
     vec2 f = fract(uv * u_wind_res);
-    vec2 tl = texture2D(u_wind, vc).rg;
-    vec2 tr = texture2D(u_wind, vc + vec2(px.x, 0)).rg;
-    vec2 bl = texture2D(u_wind, vc + vec2(0, px.y)).rg;
-    vec2 br = texture2D(u_wind, vc + px).rg;
+    vec2 tl = texture(u_wind, vc).rg;
+    vec2 tr = texture(u_wind, vc + vec2(px.x, 0)).rg;
+    vec2 bl = texture(u_wind, vc + vec2(0, px.y)).rg;
+    vec2 br = texture(u_wind, vc + px).rg;
     return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
 }
 
 void main() {
-    vec4 color = texture2D(u_particles, v_tex_pos);
-    vec2 pos = vec2(
-        color.r / 255.0 + color.b,
-        color.g / 255.0 + color.a); // decode particle position from pixel RGBA
+    vec2 pos = texture(u_particles, v_tex_pos).rg;
 
     vec2 velocity = mix(u_wind_min, u_wind_max, lookup_wind(pos));
     float speed_t = length(velocity) / length(u_wind_max);
@@ -140,10 +139,6 @@ void main() {
     vec2 random_pos = vec2(
         rand(seed + 1.3),
         rand(seed + 2.1));
-    pos = mix(pos, random_pos, drop);
 
-    // encode the new particle position back into RGBA
-    gl_FragColor = vec4(
-        fract(pos * 255.0),
-        floor(pos * 255.0) / 255.0);
+    fragColor = vec4(mix(pos, random_pos, drop), 0, 1);
 }`;

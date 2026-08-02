@@ -23,7 +23,7 @@ const coastCanvas = document.getElementById('coastline');
 // declared up here because the resize observer below can run before it's loaded
 let coastline;
 
-const gl = canvas.getContext('webgl', {antialias: false});
+const gl = canvas.getContext('webgl2', {antialias: false});
 
 const wind = window.wind = new WindGL(gl);
 wind.numParticles = 65536;
