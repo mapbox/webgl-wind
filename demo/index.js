@@ -44,7 +44,7 @@ const windFiles = {
 const meta = {
     '2016-11-20+h': 0,
     'retina resolution': true,
-    'github.com/mapbox/webgl-wind': function () {
+    'github.com/mapbox/webgl-wind'() {
         window.location = 'https://github.com/mapbox/webgl-wind';
     }
 };
@@ -63,7 +63,7 @@ function updateRetina() {
     wind.resize();
 }
 
-getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastline.geojson', function (data) {
+getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastline.geojson', (data) => {
     const canvas = document.getElementById('coastline');
     canvas.width = canvas.clientWidth * pxRatio;
     canvas.height = canvas.clientHeight * pxRatio;
@@ -86,10 +86,10 @@ getJSON('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastl
 });
 
 function updateWind(name) {
-    getJSON('wind/' + windFiles[name] + '.json', function (windData) {
+    getJSON(`wind/${windFiles[name]}.json`, (windData) => {
         const windImage = new Image();
         windData.image = windImage;
-        windImage.src = 'wind/' + windFiles[name] + '.png';
+        windImage.src = `wind/${windFiles[name]}.png`;
         windImage.onload = function () {
             wind.setWind(windData);
         };

@@ -25,7 +25,7 @@ export function createProgram(gl, vertexSource, fragmentSource) {
         throw new Error(gl.getProgramInfoLog(program));
     }
 
-    const wrapper = {program: program};
+    const wrapper = {program};
 
     const numAttributes = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
     for (let i = 0; i < numAttributes; i++) {

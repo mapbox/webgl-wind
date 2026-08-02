@@ -1,28 +1,19 @@
 {
   "name": "webgl-wind",
+  "type": "module",
   "version": "0.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "eslint src/*.js demo/index.js data/prepare.js",
+    "test": "eslint .",
     "start": "python3 -m http.server 3000"
   },
   "keywords": [],
   "author": "Vladimir Agafonkin",
   "license": "ISC",
   "devDependencies": {
-    "eslint": "^3.15.0",
-    "eslint-config-mourner": "^2.0.1",
-    "pngjs": "^3.0.0"
-  },
-  "eslintConfig": {
-    "extends": "mourner",
-    "parserOptions": {
-      "sourceType": "module"
-    },
-    "rules": {
-      "no-var": 2,
-      "prefer-const": 2
-    }
+    "eslint": "^10.8.0",
+    "eslint-config-mourner": "^5.0.1",
+    "pngjs": "^7.0.0"
   }
 }
