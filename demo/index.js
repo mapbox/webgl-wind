@@ -23,6 +23,9 @@ const coastCanvas = document.getElementById('coastline');
 // declared up here because the resize observer below can run before it's loaded
 let coastline;
 
+// the Mercator rect both the wind and the coastline are drawn against, set by resize()
+let view;
+
 const gl = canvas.getContext('webgl2', {antialias: false});
 
 const wind = window.wind = new WindGL(gl);
@@ -53,9 +56,11 @@ updateWind(0);
 // read afresh each time: it changes with the display and with page zoom
 const pixelRatio = () => (meta['retina resolution'] ? window.devicePixelRatio : 1);
 
-// both canvases are 100vw/100vh, so one observer covers them; its initial fire does the
-// initial sizing. Setting canvas.width doesn't affect the CSS box, so this can't loop.
+// both canvases are 100vw/100vh, so one observer covers them; setting canvas.width doesn't
+// affect the CSS box, so this can't loop. Called directly as well because the observer's first
+// fire is async, and a view is needed before the first frame or the coastline arrives.
 new ResizeObserver(resize).observe(canvas);
+resize();
 
 function resize() {
     const ratio = pixelRatio();
@@ -63,12 +68,13 @@ function resize() {
     canvas.height = canvas.clientHeight * ratio;
     wind.resize();
 
-    // the whole world fitted to the limiting dimension and centered: Mercator Y can't
-    // leave [0, 1], so a portrait window shows less than the full width
+    // the full Mercator Y range, so the poles are always in frame; a wide window then shows more
+    // than one world across, which the unwrapped X handles — the lookup wraps and so does the
+    // coastline below, while the particles never see a world copy at all
     const [width, height] = [canvas.clientWidth, canvas.clientHeight];
-    const spanX = Math.min(1, width / height);
-    const spanY = spanX * height / width;
-    wind.setView([0.5 - spanX / 2, 0.5 - spanY / 2, 0.5 + spanX / 2, 0.5 + spanY / 2]);
+    const spanX = width / height;
+    view = [0.5 - spanX / 2, 0, 0.5 + spanX / 2, 1];
+    wind.setView(view);
 
     coastCanvas.width = coastCanvas.clientWidth * ratio;
     coastCanvas.height = coastCanvas.clientHeight * ratio;
@@ -88,6 +94,10 @@ fetch('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastlin
         drawCoastline();
     });
 
+// clamped a little short of the poles, where Mercator runs off to infinity: Antarctica's
+// coastline reaches -90, and the projected edge would be a line the canvas can't draw
+const mercatorY = lat => 0.5 - Math.log(Math.tan(Math.PI / 4 + Math.max(-85, Math.min(85, lat)) * Math.PI / 360)) / (2 * Math.PI);
+
 function drawCoastline() {
     if (!coastline) return; // still loading — resize() or the fetch will call us again
 
@@ -97,11 +107,17 @@ function drawCoastline() {
     ctx.strokeStyle = 'white';
     ctx.beginPath();
 
-    for (const {geometry} of coastline.features) {
-        for (const [i, [lng, lat]] of geometry.coordinates.entries()) {
-            ctx[i ? 'lineTo' : 'moveTo'](
-                (lng + 180) * coastCanvas.width / 360,
-                (-lat + 90) * coastCanvas.height / 180);
+    const [minX, minY, maxX, maxY] = view;
+
+    // once per world copy the view overlaps: one normally, more once the rect is wider than a
+    // world or straddles the antimeridian, which an unwrapped minX can do arbitrarily far out
+    for (let copy = Math.floor(minX); copy <= Math.floor(maxX); copy++) {
+        for (const {geometry} of coastline.features) {
+            for (const [i, [lng, lat]] of geometry.coordinates.entries()) {
+                ctx[i ? 'lineTo' : 'moveTo'](
+                    (copy + (lng + 180) / 360 - minX) / (maxX - minX) * coastCanvas.width,
+                    (mercatorY(lat) - minY) / (maxY - minY) * coastCanvas.height);
+            }
         }
     }
     ctx.stroke();

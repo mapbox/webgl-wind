@@ -89,6 +89,11 @@ uniform sampler2D u_wind;
 uniform vec2 u_wind_res;
 uniform float u_wind_step;
 
+// the view rect, as a Mercator origin and span; u_view_min.x arrives pre-wrapped into [0, 1)
+// because an unwrapped X can be far enough out that float32 loses the fraction of a world
+uniform vec2 u_view_min;
+uniform vec2 u_view_span;
+
 uniform sampler2D u_particles;
 uniform float u_rand_seed;
 uniform float u_dt;
@@ -101,6 +106,8 @@ uniform float u_travel_rate; // 1/px — hazard of recycling per CSS px travelle
 in vec2 v_tex_pos;
 
 out vec4 fragColor;
+
+const float PI = 3.141592653589793;
 
 // pseudo-random generator
 const vec3 rand_constants = vec3(12.9898, 78.233, 4375.85453);
@@ -124,20 +131,30 @@ vec2 lookup_wind(const vec2 uv) {
 }
 
 void main() {
+    // positions are stored relative to the view, so this is the only place a global coordinate
+    // appears — and only to be looked up, never stored back: float32 is ample against a ~1° grid
+    // but at high zoom the whole visible span is a few ulps of a world coordinate
     vec2 pos = texture(u_particles, v_tex_pos).rg;
+    vec2 world = u_view_min + pos * u_view_span;
 
-    // affine, so decoding after the blend is exact — see src/encode.js
-    vec2 velocity = (lookup_wind(pos) * 255.0 - 128.0) * u_wind_step;
+    // inverting Mercator, but stopping at sinh: the wind row wants the latitude while the scale
+    // factor wants cosh of the same argument, so one sinh serves both and only the row pays atan
+    float sinh_lat = sinh(PI * (1.0 - 2.0 * world.y));
+    float cos_lat = inversesqrt(1.0 + sinh_lat * sinh_lat);
+
+    // affine, so decoding after the blend is exact — see src/encode.js. The grid stays
+    // equirectangular on disk: reprojecting it would cost equator detail or bloat the poles.
+    vec2 uv = vec2(fract(world.x), 0.5 - atan(sinh_lat) / PI);
+    vec2 velocity = (lookup_wind(uv) * 255.0 - 128.0) * u_wind_step;
     // position along the color ramp, which clamps past its end on its own
     float speed_t = length(velocity) / u_ramp_max_speed;
 
-    // take EPSG:4326 distortion into account for calculating where the particle moved
-    float distortion = cos(radians(pos.y * 180.0 - 90.0));
-    vec2 offset_px = vec2(velocity.x / distortion, -velocity.y) * u_speed_dt;
+    // Mercator is conformal, so its stretch is one isotropic scalar on the ground velocity rather
+    // than the equirectangular fix to x alone. Speed is in screen px, which is what keeps the field
+    // reading the same at every zoom — the latitude term stays physical, so shape survives too.
+    vec2 offset_px = vec2(velocity.x, -velocity.y) / cos_lat * u_speed_dt;
     vec2 offset = offset_px / u_canvas_css;
-
-    // update particle position, wrapping around the date line
-    pos = fract(1.0 + pos + offset);
+    pos += offset;
 
     vec2 seed = (pos + v_tex_pos) * u_rand_seed;
 
@@ -146,7 +163,10 @@ void main() {
     // keeps calm air turning over, the second evens out density as flow concentrates
     // particles. A zero rate disables its hazard.
     float survival = exp(-(u_dt * u_life_rate + length(offset_px) * u_travel_rate));
-    float drop = step(survival, rand(seed));
+    // a particle carried out of the view is gone for good, so it respawns too: the view is no
+    // longer the whole world, and wrapping it would fold the far edge back into the picture
+    float escaped = float(any(lessThan(pos, vec2(0))) || any(greaterThan(pos, vec2(1))));
+    float drop = max(escaped, step(survival, rand(seed)));
 
     vec2 random_pos = vec2(
         rand(seed + 1.3),
@@ -154,9 +174,8 @@ void main() {
 
     pos = mix(pos, random_pos, drop);
 
-    // half floats resolve the offset to a fraction of a pixel. Zeroed on a drop, so that
-    // particle draws no segment; un-wrapped, so a date line crossing runs off the edge
-    // rather than back across the screen.
+    // half floats resolve the offset to a fraction of a pixel; zeroed on a drop, so
+    // the particle draws no segment from wherever it used to be to where it respawned
     float packed_offset = uintBitsToFloat(packHalf2x16(offset * (1.0 - drop)));
 
     fragColor = vec4(pos, packed_offset, speed_t);

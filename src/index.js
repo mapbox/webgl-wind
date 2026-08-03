@@ -1,7 +1,7 @@
 import * as util from './util.js';
 import {drawVert, drawFrag, quadVert, screenFrag, updateFrag} from './shaders.js';
 import {WIND_RANGE, windStep} from './encode.js';
-import {validateView} from './view.js';
+import {validateView, viewSpan, viewMin} from './view.js';
 
 const defaultRampColors = {
     0.0: '#3288bd',
@@ -187,6 +187,7 @@ export default class WindGL {
         const gl = this.gl;
         // a hidden or not yet laid out canvas has no area to fill; resize() picks it up later
         if (!this._numParticles) return;
+        if (!this.view) throw new Error('setView() must be called before draw()');
 
         gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.STENCIL_TEST);
@@ -197,10 +198,11 @@ export default class WindGL {
         this.lastFrame = now;
 
         util.bindTexture(gl, this.windTexture, 0);
-        util.bindTexture(gl, this.particleStateTexture0, 1);
 
-        this.drawScreen(dt);
+        // update first: the step is what the segment draws, and once the view can move it's the
+        // update pass that rebases the state into the current view the draw renders against
         this.updateParticles(dt);
+        this.drawScreen(dt);
     }
 
     drawScreen(dt) {
@@ -246,6 +248,7 @@ export default class WindGL {
         const program = this.drawProgram;
         gl.useProgram(program);
 
+        util.bindTexture(gl, this.particleStateTexture0, 1);
         util.bindTexture(gl, this.colorRampTexture, 2);
 
         gl.uniform1i(program.u_particles, 1);
@@ -267,12 +270,15 @@ export default class WindGL {
         const program = this.updateProgram;
         gl.useProgram(program);
 
+        util.bindTexture(gl, this.particleStateTexture0, 1);
         gl.uniform1i(program.u_wind, 0);
         gl.uniform1i(program.u_particles, 1);
 
         gl.uniform1f(program.u_rand_seed, Math.random());
         gl.uniform1f(program.u_dt, dt);
         gl.uniform2f(program.u_wind_res, this.windRes[0], this.windRes[1]);
+        gl.uniform2f(program.u_view_min, ...viewMin(this.view));
+        gl.uniform2f(program.u_view_span, ...viewSpan(this.view));
         gl.uniform1f(program.u_wind_step, this.windStep);
         gl.uniform1f(program.u_ramp_max_speed, this.rampMaxSpeed);
         // speeds are in CSS px so they mean the same thing at any device pixel ratio
