@@ -92,7 +92,9 @@ uniform float u_wind_step;
 uniform sampler2D u_particles;
 uniform float u_rand_seed;
 uniform float u_dt;
-uniform float u_speed_factor;
+uniform float u_speed_dt; // CSS px of screen travel per m/s of wind, over this frame
+uniform vec2 u_canvas_css;
+uniform float u_ramp_max_speed;
 uniform float u_drop_rate;
 uniform float u_drop_rate_bump;
 
@@ -126,15 +128,16 @@ void main() {
 
     // affine, so decoding after the blend is exact — see src/encode.js
     vec2 velocity = (lookup_wind(pos) * 255.0 - 128.0) * u_wind_step;
-    // 0..1 fraction of the encodable range, for coloring
-    float speed_t = length(velocity) / (u_wind_step * 127.0);
+    // position along the color ramp, which clamps past its end on its own
+    float speed_t = length(velocity) / u_ramp_max_speed;
 
-    // the speed and drop knobs are still per-frame quantities, calibrated at 60 Hz
+    // the drop knobs are still per-frame quantities, calibrated at 60 Hz
     float frames = u_dt * 60.0;
 
     // take EPSG:4326 distortion into account for calculating where the particle moved
     float distortion = cos(radians(pos.y * 180.0 - 90.0));
-    vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.0001 * u_speed_factor * frames;
+    vec2 offset_px = vec2(velocity.x / distortion, -velocity.y) * u_speed_dt;
+    vec2 offset = offset_px / u_canvas_css;
 
     // update particle position, wrapping around the date line
     pos = fract(1.0 + pos + offset);

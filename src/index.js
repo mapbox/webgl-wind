@@ -30,10 +30,11 @@ export default class WindGL {
 
         this.lastFrame = 0; // timestamp of the previous draw, for the frame interval
 
-        this.fadeOpacity = 0.996; // how fast the particle trails fade on each frame
-        this.speedFactor = 0.25; // how fast the particles move
-        this.dropRate = 0.003; // how often the particles move to a random place
-        this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
+        this.trailDuration = 8; // s — time for a trail to fade to invisible
+        this.speed = 4.4; // CSS px/s of screen travel per m/s of wind, at the equator
+        this.rampMaxSpeed = 32; // m/s — wind speed at the top of the color ramp
+        this.dropRate = 0.006; // how often the particles move to a random place
+        this.dropRateBump = 0.02; // drop rate increase relative to individual particle speed
 
         this.drawProgram = util.createProgram(gl, drawVert, drawFrag);
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
@@ -134,8 +135,8 @@ export default class WindGL {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.screenTexture, 0);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-        // fadeOpacity is still per frame at 60 Hz; compounding it keeps the trail length
-        this.drawTexture(this.backgroundTexture, this.fadeOpacity ** (dt * 60), Math.random());
+        // 1/255 is gone in 8 bits, so trailDuration is the time to fade to that
+        this.drawTexture(this.backgroundTexture, (1 / 255) ** (dt / this.trailDuration), Math.random());
         this.drawParticles();
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -198,7 +199,11 @@ export default class WindGL {
         gl.uniform1f(program.u_dt, dt);
         gl.uniform2f(program.u_wind_res, this.windRes[0], this.windRes[1]);
         gl.uniform1f(program.u_wind_step, this.windStep);
-        gl.uniform1f(program.u_speed_factor, this.speedFactor);
+        gl.uniform1f(program.u_ramp_max_speed, this.rampMaxSpeed);
+        // speeds are in CSS px so they mean the same thing at any device pixel ratio
+        gl.uniform1f(program.u_speed_dt, this.speed * dt);
+        gl.uniform2f(program.u_canvas_css, gl.canvas.clientWidth || gl.canvas.width,
+            gl.canvas.clientHeight || gl.canvas.height);
         gl.uniform1f(program.u_drop_rate, this.dropRate);
         gl.uniform1f(program.u_drop_rate_bump, this.dropRateBump);
 

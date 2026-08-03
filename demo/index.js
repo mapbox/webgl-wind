@@ -38,8 +38,9 @@ frame();
 
 const gui = new GUI();
 gui.add(wind, 'numParticles', 1024, 589824);
-gui.add(wind, 'fadeOpacity', 0.96, 0.999).step(0.001).updateDisplay();
-gui.add(wind, 'speedFactor', 0.05, 1.0);
+gui.add(wind, 'trailDuration', 0.2, 30);
+gui.add(wind, 'speed', 0.25, 10);
+gui.add(wind, 'rampMaxSpeed', 5, 40);
 gui.add(wind, 'dropRate', 0, 0.1);
 gui.add(wind, 'dropRateBump', 0, 0.2);
 gui.add(meta, 'hours', 0, (windFiles.length - 1) * 6, 6).name(sliderLabel).onFinishChange(updateWind);
