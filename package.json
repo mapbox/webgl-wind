@@ -7,7 +7,7 @@
   "exports": "./src/index.js",
   "files": ["src"],
   "scripts": {
-    "test": "eslint .",
+    "test": "eslint . && node --test",
     "start": "python3 -m http.server 3000"
   },
   "repository": "mapbox/webgl-wind",

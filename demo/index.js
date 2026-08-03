@@ -29,7 +29,7 @@ const wind = window.wind = new WindGL(gl);
 wind.numParticles = 65536;
 
 function frame() {
-    if (wind.windData) {
+    if (wind.windTexture) {
         wind.draw();
     }
     requestAnimationFrame(frame);
@@ -48,13 +48,11 @@ gui.add(meta, 'github.com/mapbox/webgl-wind');
 
 updateWind(0);
 
-// read afresh each time — it changes when the window moves between displays or the
-// page is zoomed
+// read afresh each time: it changes with the display and with page zoom
 const pixelRatio = () => (meta['retina resolution'] ? window.devicePixelRatio : 1);
 
-// both canvases are 100vw/100vh, so one observer covers them; it also fires once on
-// setup, which is what does the initial sizing. Setting canvas.width doesn't affect
-// the CSS box, so this can't loop.
+// both canvases are 100vw/100vh, so one observer covers them; its initial fire does the
+// initial sizing. Setting canvas.width doesn't affect the CSS box, so this can't loop.
 new ResizeObserver(resize).observe(canvas);
 
 function resize() {
@@ -69,12 +67,9 @@ function resize() {
 }
 
 async function updateWind(hours) {
-    const name = windFiles[hours / 6];
-    const [windData, image] = await Promise.all([
-        fetch(`wind/${name}.json`).then(res => res.json()),
-        fetch(`wind/${name}.png`).then(res => res.blob()).then(createImageBitmap)
-    ]);
-    wind.setWind({...windData, image});
+    const blob = await fetch(`wind/${windFiles[hours / 6]}.png`).then(res => res.blob());
+    // the PNG holds numbers, not colours: no conversion may touch the channels
+    wind.setWind(await createImageBitmap(blob, {colorSpaceConversion: 'none', premultiplyAlpha: 'none'}));
 }
 
 fetch('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastline.geojson')

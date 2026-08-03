@@ -36,9 +36,8 @@ export function createProgram(gl, vertexSource, fragmentSource) {
 }
 
 // `data` may be a typed array, an image or bitmap, or null to allocate storage only.
-// Filtering is always NEAREST: shaders that want interpolation do it themselves, and it
-// isn't guaranteed for 32-bit float textures anyway. Only S can wrap — a wrapping T
-// would blend the poles into each other.
+// Filtering is always NEAREST: shaders interpolate themselves, and it isn't guaranteed
+// for float textures anyway. Only S can wrap — a wrapping T would blend the poles.
 export function createTexture(gl, format, data, width, height, wrapS = gl.CLAMP_TO_EDGE) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -49,6 +48,8 @@ export function createTexture(gl, format, data, width, height, wrapS = gl.CLAMP_
 
     gl.texStorage2D(gl.TEXTURE_2D, 1, format, width, height);
     if (data) {
+        // the default, BROWSER_DEFAULT_WEBGL, may rewrite the channels on upload
+        gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA,
             format === gl.RGBA32F ? gl.FLOAT : gl.UNSIGNED_BYTE, data);
     }

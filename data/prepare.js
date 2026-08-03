@@ -1,14 +1,18 @@
-// Fetches recent 10 m wind from the NCEP GFS 1° model and writes a PNG + JSON metadata
-// pair per frame for WindGL.setWind(). Data comes from Unidata's THREDDS server over
-// OPeNDAP's ASCII output, which is plain text — no GRIB tooling needed.
+// Fetches recent 10 m wind from the NCEP GFS 1° model and writes one PNG per frame for
+// WindGL.setWind(). Data comes from Unidata's THREDDS server over OPeNDAP's ASCII
+// output, which is plain text — no GRIB tooling needed.
 //
 //     node data/prepare.js [outDir] [frames]
 //
-// Frames are 6 hours apart, ending at the most recent one available.
+// Frames are 6 hours apart, ending at the most recent one available. Each PNG is a
+// 360x180 equirectangular grid, lat 90°→-90° down the rows, lon centred on 0°E, u in
+// red and v in green per src/encode.js.
 
 import {PNG} from 'pngjs';
 import fs from 'node:fs';
 import path from 'node:path';
+
+import {WIND_RANGE, encodeWind, clampWind} from '../src/encode.js';
 
 const DATASET = 'https://thredds.ucar.edu/thredds/dodsC/grib/NCEP/GFS/Global_onedeg/Best';
 const width = 360;
@@ -47,28 +51,30 @@ async function writeFrame(date) {
         const body = await get(`ascii?${encodeURIComponent(`${name}[${index}][0][0:180][0:359]`)}`);
         // the coordinate axes are repeated after the grid, and each row is prefixed
         // with its `[t][z][y], ` index — integers, which `numbers` skips
-        const values = numbers(body.slice(0, body.indexOf(`${name}.time`)));
-        // 65k values is too many to spread into Math.min
-        let min = Infinity, max = -Infinity;
-        for (const value of values) {
-            min = Math.min(min, value);
-            max = Math.max(max, value);
-        }
-        return {values, min, max};
+        return numbers(body.slice(0, body.indexOf(`${name}.time`)));
     }));
 
     const png = new PNG({colorType: 2, filterType: 4, width, height});
+    let maxComponent = 0;
 
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const i = (y * width + x) * 4;
             // roll by half a turn: GFS starts at 0°E, the texture is centred on it
             const k = y * width + (x + width / 2) % width;
-            png.data[i + 0] = Math.floor(255 * (u.values[k] - u.min) / (u.max - u.min));
-            png.data[i + 1] = Math.floor(255 * (v.values[k] - v.min) / (v.max - v.min));
+            maxComponent = Math.max(maxComponent, Math.abs(u[k]), Math.abs(v[k]));
+            const [uc, vc] = clampWind(u[k], v[k]);
+            png.data[i + 0] = encodeWind(uc);
+            png.data[i + 1] = encodeWind(vc);
             png.data[i + 2] = 0;
             png.data[i + 3] = 255;
         }
+    }
+
+    // saturation changes movement, not just colour, so fail rather than flatten silently
+    if (maxComponent > WIND_RANGE) {
+        throw new Error(`largest component ${maxComponent.toFixed(1)} m/s exceeds WIND_RANGE ` +
+            `${WIND_RANGE}; raise it to at least ${Math.ceil(maxComponent)} in src/encode.js`);
     }
 
     const hour = date.toISOString().slice(0, 13);
@@ -76,17 +82,7 @@ async function writeFrame(date) {
     const file = path.join(outDir, name);
 
     fs.writeFileSync(`${file}.png`, PNG.sync.write(png));
-    fs.writeFileSync(`${file}.json`, `${JSON.stringify({
-        source: DATASET,
-        date: `${hour}:00Z`,
-        width,
-        height,
-        uMin: u.min,
-        uMax: u.max,
-        vMin: v.min,
-        vMax: v.max
-    }, null, 2)}\n`);
 
-    console.log(`wrote ${file}.png`);
+    console.log(`wrote ${file}.png (max component ${maxComponent.toFixed(1)} m/s)`);
     return name;
 }

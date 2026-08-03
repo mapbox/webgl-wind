@@ -82,8 +82,7 @@ precision highp float;
 
 uniform sampler2D u_wind;
 uniform vec2 u_wind_res;
-uniform vec2 u_wind_min;
-uniform vec2 u_wind_max;
+uniform float u_wind_step;
 
 uniform sampler2D u_particles;
 uniform float u_rand_seed;
@@ -102,8 +101,8 @@ float rand(const vec2 co) {
     return fract(sin(t) * (rand_constants.z + t));
 }
 
-// bilinear blend of the 4 surrounding texels, done in highp because hardware
-// filtering uses low-precision weights on many GPUs, which stair-steps the trails
+// manual bilinear blend: hardware filtering uses low-precision weights on many GPUs,
+// which stair-steps the trails
 vec2 lookup_wind(const vec2 uv) {
     vec2 px = 1.0 / u_wind_res;
     vec2 t = uv * u_wind_res - 0.5;
@@ -119,9 +118,10 @@ vec2 lookup_wind(const vec2 uv) {
 void main() {
     vec2 pos = texture(u_particles, v_tex_pos).rg;
 
-    vec2 velocity = mix(u_wind_min, u_wind_max, lookup_wind(pos));
-    // 0..1 fraction of the grid's maximum, for coloring
-    float speed_t = length(velocity) / length(u_wind_max);
+    // affine, so decoding after the blend is exact — see src/encode.js
+    vec2 velocity = (lookup_wind(pos) * 255.0 - 128.0) * u_wind_step;
+    // 0..1 fraction of the encodable range, for coloring
+    float speed_t = length(velocity) / (u_wind_step * 127.0);
 
     // take EPSG:4326 distortion into account for calculating where the particle moved
     float distortion = cos(radians(pos.y * 180.0 - 90.0));
@@ -130,10 +130,9 @@ void main() {
     // update particle position, wrapping around the date line
     pos = fract(1.0 + pos + offset);
 
-    // a random seed to use for the particle drop
     vec2 seed = (pos + v_tex_pos) * u_rand_seed;
 
-    // drop rate is a chance a particle will restart at random position, to avoid degeneration
+    // chance of restarting at a random position, so the field can't degenerate
     float drop_rate = u_drop_rate + speed_t * u_drop_rate_bump;
     float drop = step(1.0 - drop_rate, rand(seed));
 
@@ -143,9 +142,9 @@ void main() {
 
     pos = mix(pos, random_pos, drop);
 
-    // half floats resolve the offset to a small fraction of a pixel. Zeroing it on a drop
-    // gives that particle no segment; keeping it un-wrapped runs a date line crossing off
-    // the edge rather than back across the screen.
+    // half floats resolve the offset to a fraction of a pixel. Zeroed on a drop, so that
+    // particle draws no segment; un-wrapped, so a date line crossing runs off the edge
+    // rather than back across the screen.
     float packed_offset = uintBitsToFloat(packHalf2x16(offset * (1.0 - drop)));
 
     fragColor = vec4(pos, packed_offset, speed_t);

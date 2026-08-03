@@ -1,5 +1,6 @@
 import * as util from './util.js';
 import {drawVert, drawFrag, quadVert, screenFrag, updateFrag} from './shaders.js';
+import {WIND_RANGE, windStep} from './encode.js';
 
 const defaultRampColors = {
     0.0: '#3288bd',
@@ -13,8 +14,11 @@ const defaultRampColors = {
 };
 
 export default class WindGL {
-    constructor(gl) {
+    // `windRange` is the ±m/s range the wind images were encoded against; constructor-only
+    // so a later change can't reinterpret an already loaded image
+    constructor(gl, {windRange = WIND_RANGE} = {}) {
         this.gl = gl;
+        this.windStep = windStep(windRange);
 
         // needed to render into the RGBA32F particle state textures
         if (!gl.getExtension('EXT_color_buffer_float')) {
@@ -68,8 +72,7 @@ export default class WindGL {
         }
         gl.deleteTexture(this.particleStateTexture0);
         gl.deleteTexture(this.particleStateTexture1);
-        // particle state for the current and the next frame; the next one is only ever
-        // rendered into, so it just needs storage
+        // current and next frame; the next one is only rendered into, so it needs no data
         this.particleStateTexture0 = util.createTexture(gl, gl.RGBA32F, particleState, particleRes, particleRes);
         this.particleStateTexture1 = util.createTexture(gl, gl.RGBA32F, null, particleRes, particleRes);
     }
@@ -77,12 +80,15 @@ export default class WindGL {
         return this._numParticles;
     }
 
-    setWind(windData) {
+    // `image` is an equirectangular u/v grid encoded per src/encode.js. Decode it with
+    // `createImageBitmap(blob, {colorSpaceConversion: 'none', premultiplyAlpha: 'none'})`:
+    // browser defaults are entitled to rewrite the channels.
+    setWind(image) {
         const gl = this.gl;
-        this.windData = windData;
+        this.windRes = [image.width, image.height];
         gl.deleteTexture(this.windTexture);
         // wraps in S to interpolate across the date line
-        this.windTexture = util.createTexture(gl, gl.RGBA8, windData.image, windData.width, windData.height, gl.REPEAT);
+        this.windTexture = util.createTexture(gl, gl.RGBA8, image, image.width, image.height, gl.REPEAT);
     }
 
     // releases every GL resource; the instance is unusable afterwards
@@ -175,16 +181,15 @@ export default class WindGL {
         gl.uniform1i(program.u_particles, 1);
 
         gl.uniform1f(program.u_rand_seed, Math.random());
-        gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
-        gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
-        gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+        gl.uniform2f(program.u_wind_res, this.windRes[0], this.windRes[1]);
+        gl.uniform1f(program.u_wind_step, this.windStep);
         gl.uniform1f(program.u_speed_factor, this.speedFactor);
         gl.uniform1f(program.u_drop_rate, this.dropRate);
         gl.uniform1f(program.u_drop_rate_bump, this.dropRateBump);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-        // swap the particle state textures so the new one becomes the current one
+        // the texture just rendered into becomes the current state
         const temp = this.particleStateTexture0;
         this.particleStateTexture0 = this.particleStateTexture1;
         this.particleStateTexture1 = temp;
