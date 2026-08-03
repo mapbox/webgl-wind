@@ -25,6 +25,9 @@ export default class WindGL {
             throw new Error('WebGL2 EXT_color_buffer_float is required');
         }
 
+        // on by default, and it would stack an implementation-defined dither on top of ours
+        gl.disable(gl.DITHER);
+
         this.fadeOpacity = 0.996; // how fast the particle trails fade on each frame
         this.speedFactor = 0.25; // how fast the particles move
         this.dropRate = 0.003; // how often the particles move to a random place
@@ -123,7 +126,7 @@ export default class WindGL {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.screenTexture, 0);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-        this.drawTexture(this.backgroundTexture, this.fadeOpacity);
+        this.drawTexture(this.backgroundTexture, this.fadeOpacity, Math.random());
         this.drawParticles();
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -139,7 +142,8 @@ export default class WindGL {
         this.screenTexture = temp;
     }
 
-    drawTexture(texture, opacity) {
+    // `ditherSeed` of 0 draws the texture as is; anything else dithers the fade
+    drawTexture(texture, opacity, ditherSeed = 0) {
         const gl = this.gl;
         const program = this.screenProgram;
         gl.useProgram(program);
@@ -147,6 +151,7 @@ export default class WindGL {
         util.bindTexture(gl, texture, 2);
         gl.uniform1i(program.u_screen, 2);
         gl.uniform1f(program.u_opacity, opacity);
+        gl.uniform1f(program.u_dither_seed, ditherSeed);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }

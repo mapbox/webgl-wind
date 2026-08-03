@@ -55,22 +55,27 @@ void main() {
     gl_Position = vec4(2.0 * v_tex_pos - 1.0, 0, 1);
 }`;
 
-// Draws the previous frame's screen texture, fading it out.
+// Draws the previous frame's screen texture, fading it out. highp because in mediump the
+// ulp at 4K gl_FragCoord values is 4, and the dither below would degenerate into banding.
 
 export const screenFrag = `#version 300 es
-precision mediump float;
+precision highp float;
 
 uniform sampler2D u_screen;
 uniform float u_opacity;
+uniform float u_dither_seed;
 
 in vec2 v_tex_pos;
 
 out vec4 fragColor;
 
 void main() {
-    vec4 color = texture(u_screen, v_tex_pos);
-    // a hack to guarantee opacity fade out even with a value close to 1.0
-    fragColor = vec4(floor(255.0 * color * u_opacity) / 255.0);
+    vec4 faded = texture(u_screen, v_tex_pos) * u_opacity;
+    // ±0.5/255 of R2 noise makes the rounding unbiased, so a fade of a fraction of a level isn't lost.
+    // Zero seed means nothing to fade; sign() keeps black black, as clamping the negative half of the
+    // noise would rectify it into a haze that never fades.
+    float dither = u_dither_seed > 0.0 ? fract(dot(gl_FragCoord.xy, vec2(0.7548777, 0.5698403)) + u_dither_seed) - 0.5 : 0.0;
+    fragColor = faded + dither / 255.0 * sign(faded);
 }`;
 
 // Advances every particle by one simulation step, writing the new state into the other
