@@ -28,6 +28,8 @@ export default class WindGL {
         // on by default, and it would stack an implementation-defined dither on top of ours
         gl.disable(gl.DITHER);
 
+        this.lastFrame = 0; // timestamp of the previous draw, for the frame interval
+
         this.fadeOpacity = 0.996; // how fast the particle trails fade on each frame
         this.speedFactor = 0.25; // how fast the particles move
         this.dropRate = 0.003; // how often the particles move to a random place
@@ -107,26 +109,33 @@ export default class WindGL {
         gl.deleteFramebuffer(this.framebuffer);
     }
 
-    draw() {
+    // `now` is a timestamp in ms, as passed to a requestAnimationFrame callback
+    draw(now = performance.now()) {
         const gl = this.gl;
         gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.STENCIL_TEST);
 
+        // clamped so a stall or a tab switch advances one plausible frame instead of
+        // teleporting everything; the first frame has no interval to measure
+        const dt = this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.1) : 1 / 60;
+        this.lastFrame = now;
+
         util.bindTexture(gl, this.windTexture, 0);
         util.bindTexture(gl, this.particleStateTexture0, 1);
 
-        this.drawScreen();
-        this.updateParticles();
+        this.drawScreen(dt);
+        this.updateParticles(dt);
     }
 
-    drawScreen() {
+    drawScreen(dt) {
         const gl = this.gl;
         // draw into a texture so this frame can serve as the next frame's background
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.screenTexture, 0);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-        this.drawTexture(this.backgroundTexture, this.fadeOpacity, Math.random());
+        // fadeOpacity is still per frame at 60 Hz; compounding it keeps the trail length
+        this.drawTexture(this.backgroundTexture, this.fadeOpacity ** (dt * 60), Math.random());
         this.drawParticles();
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -173,7 +182,7 @@ export default class WindGL {
         gl.drawArrays(gl.LINES, 0, this._numParticles * 2);
     }
 
-    updateParticles() {
+    updateParticles(dt) {
         const gl = this.gl;
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.particleStateTexture1, 0);
@@ -186,6 +195,7 @@ export default class WindGL {
         gl.uniform1i(program.u_particles, 1);
 
         gl.uniform1f(program.u_rand_seed, Math.random());
+        gl.uniform1f(program.u_dt, dt);
         gl.uniform2f(program.u_wind_res, this.windRes[0], this.windRes[1]);
         gl.uniform1f(program.u_wind_step, this.windStep);
         gl.uniform1f(program.u_speed_factor, this.speedFactor);

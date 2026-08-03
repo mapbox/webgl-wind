@@ -28,9 +28,9 @@ const gl = canvas.getContext('webgl2', {antialias: false});
 const wind = window.wind = new WindGL(gl);
 wind.numParticles = 65536;
 
-function frame() {
+function frame(now) {
     if (wind.windTexture) {
-        wind.draw();
+        wind.draw(now);
     }
     requestAnimationFrame(frame);
 }

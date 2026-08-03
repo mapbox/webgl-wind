@@ -91,6 +91,7 @@ uniform float u_wind_step;
 
 uniform sampler2D u_particles;
 uniform float u_rand_seed;
+uniform float u_dt;
 uniform float u_speed_factor;
 uniform float u_drop_rate;
 uniform float u_drop_rate_bump;
@@ -128,18 +129,23 @@ void main() {
     // 0..1 fraction of the encodable range, for coloring
     float speed_t = length(velocity) / (u_wind_step * 127.0);
 
+    // the speed and drop knobs are still per-frame quantities, calibrated at 60 Hz
+    float frames = u_dt * 60.0;
+
     // take EPSG:4326 distortion into account for calculating where the particle moved
     float distortion = cos(radians(pos.y * 180.0 - 90.0));
-    vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.0001 * u_speed_factor;
+    vec2 offset = vec2(velocity.x / distortion, -velocity.y) * 0.0001 * u_speed_factor * frames;
 
     // update particle position, wrapping around the date line
     pos = fract(1.0 + pos + offset);
 
     vec2 seed = (pos + v_tex_pos) * u_rand_seed;
 
-    // chance of restarting at a random position, so the field can't degenerate
+    // chance of restarting at a random position, so the field can't degenerate. Survival
+    // compounds per frame, so the per-frame rate becomes a hazard over this frame's length;
+    // max() only guards pow() against a rate above 1, which means "always drop" as before.
     float drop_rate = u_drop_rate + speed_t * u_drop_rate_bump;
-    float drop = step(1.0 - drop_rate, rand(seed));
+    float drop = step(pow(max(1.0 - drop_rate, 0.0), frames), rand(seed));
 
     vec2 random_pos = vec2(
         rand(seed + 1.3),
