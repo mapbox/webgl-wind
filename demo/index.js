@@ -26,7 +26,6 @@ let coastline;
 const gl = canvas.getContext('webgl2', {antialias: false});
 
 const wind = window.wind = new WindGL(gl);
-wind.numParticles = 65536;
 
 function frame(now) {
     if (wind.windTexture) {
@@ -37,7 +36,9 @@ function frame(now) {
 frame();
 
 const gui = new GUI();
-gui.add(wind, 'numParticles', 1024, 589824);
+gui.add(wind, 'particleSpacing', 3, 20);
+// derived from the spacing and the CSS size, so read-only — but worth watching
+gui.add(wind, 'numParticles').disable().listen();
 gui.add(wind, 'trailDuration', 0.2, 30);
 gui.add(wind, 'speed', 0.25, 10);
 gui.add(wind, 'rampMaxSpeed', 5, 40);
