@@ -63,6 +63,13 @@ function resize() {
     canvas.height = canvas.clientHeight * ratio;
     wind.resize();
 
+    // the whole world fitted to the limiting dimension and centered: Mercator Y can't
+    // leave [0, 1], so a portrait window shows less than the full width
+    const [width, height] = [canvas.clientWidth, canvas.clientHeight];
+    const spanX = Math.min(1, width / height);
+    const spanY = spanX * height / width;
+    wind.setView([0.5 - spanX / 2, 0.5 - spanY / 2, 0.5 + spanX / 2, 0.5 + spanY / 2]);
+
     coastCanvas.width = coastCanvas.clientWidth * ratio;
     coastCanvas.height = coastCanvas.clientHeight * ratio;
     drawCoastline();

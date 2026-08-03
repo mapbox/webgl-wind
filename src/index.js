@@ -1,6 +1,7 @@
 import * as util from './util.js';
 import {drawVert, drawFrag, quadVert, screenFrag, updateFrag} from './shaders.js';
 import {WIND_RANGE, windStep} from './encode.js';
+import {validateView} from './view.js';
 
 const defaultRampColors = {
     0.0: '#3288bd',
@@ -33,8 +34,8 @@ export default class WindGL {
 
         this.lastFrame = 0; // timestamp of the previous draw, for the frame interval
 
-        this.trailDuration = 8; // s — time for a trail to fade to invisible
-        this.speed = 4.4; // CSS px/s of screen travel per m/s of wind, at the equator
+        this.trailDuration = 12; // s — time for a trail to fade to invisible
+        this.speed = 2.2; // CSS px/s of screen travel per m/s of wind, at the equator
         this.rampMaxSpeed = 32; // m/s — wind speed at the top of the color ramp
         // recycling: particles move to a random place at these two mean rates, which can
         // each be Infinity to disable that half
@@ -42,6 +43,10 @@ export default class WindGL {
         this.particleTravel = 115; // CSS px — mean distance travelled before recycling
 
         this.particleRes = 0; // state texture size; no state allocated yet
+
+        // the latest view, and the one the state and trails are encoded against
+        this.view = null;
+        this.prevView = null;
 
         this.drawProgram = util.createProgram(gl, drawVert, drawFrag);
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
@@ -73,6 +78,16 @@ export default class WindGL {
     get cssSize() {
         const canvas = this.gl.canvas;
         return [canvas.clientWidth || canvas.width, canvas.clientHeight || canvas.height];
+    }
+
+    // `[minX, minY, maxX, maxY]` in Mercator units: the area the canvas shows, aspect-matched to it. X may be
+    // unwrapped, so an antimeridian pan stays continuous rather than jumping a world. Required before draw().
+    setView(rect) {
+        validateView(rect, ...this.cssSize);
+        this.view = rect;
+        // nothing is rendered yet, so the first view is what the state already means;
+        // afterwards prevView only advances at the end of draw()
+        this.prevView ??= rect;
     }
 
     // the square root of screen area per particle, so it's linear in perceived gappiness —
@@ -118,6 +133,9 @@ export default class WindGL {
         } else {
             this._capped = false;
         }
+
+        // nothing to fill, so keep the state: a canvas hidden and shown again resumes
+        if (!this._numParticles) return;
 
         // a square texture, one texel per particle, so the last row is partly padding
         const res = Math.ceil(Math.sqrt(this._numParticles));
