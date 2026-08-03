@@ -33,8 +33,10 @@ export default class WindGL {
         this.trailDuration = 8; // s — time for a trail to fade to invisible
         this.speed = 4.4; // CSS px/s of screen travel per m/s of wind, at the equator
         this.rampMaxSpeed = 32; // m/s — wind speed at the top of the color ramp
-        this.dropRate = 0.006; // how often the particles move to a random place
-        this.dropRateBump = 0.02; // drop rate increase relative to individual particle speed
+        // recycling: particles move to a random place at these two mean rates, which can
+        // each be Infinity to disable that half
+        this.particleLife = 2.8; // s — mean lifetime of a becalmed particle
+        this.particleTravel = 115; // CSS px — mean distance travelled before recycling
 
         this.drawProgram = util.createProgram(gl, drawVert, drawFrag);
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
@@ -204,8 +206,9 @@ export default class WindGL {
         gl.uniform1f(program.u_speed_dt, this.speed * dt);
         gl.uniform2f(program.u_canvas_css, gl.canvas.clientWidth || gl.canvas.width,
             gl.canvas.clientHeight || gl.canvas.height);
-        gl.uniform1f(program.u_drop_rate, this.dropRate);
-        gl.uniform1f(program.u_drop_rate_bump, this.dropRateBump);
+        // reciprocals, so Infinity turns into an exactly zero hazard
+        gl.uniform1f(program.u_life_rate, 1 / this.particleLife);
+        gl.uniform1f(program.u_travel_rate, 1 / this.particleTravel);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 

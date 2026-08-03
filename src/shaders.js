@@ -95,8 +95,8 @@ uniform float u_dt;
 uniform float u_speed_dt; // CSS px of screen travel per m/s of wind, over this frame
 uniform vec2 u_canvas_css;
 uniform float u_ramp_max_speed;
-uniform float u_drop_rate;
-uniform float u_drop_rate_bump;
+uniform float u_life_rate; // 1/s — hazard of recycling per second of age
+uniform float u_travel_rate; // 1/px — hazard of recycling per CSS px travelled
 
 in vec2 v_tex_pos;
 
@@ -131,9 +131,6 @@ void main() {
     // position along the color ramp, which clamps past its end on its own
     float speed_t = length(velocity) / u_ramp_max_speed;
 
-    // the drop knobs are still per-frame quantities, calibrated at 60 Hz
-    float frames = u_dt * 60.0;
-
     // take EPSG:4326 distortion into account for calculating where the particle moved
     float distortion = cos(radians(pos.y * 180.0 - 90.0));
     vec2 offset_px = vec2(velocity.x / distortion, -velocity.y) * u_speed_dt;
@@ -144,11 +141,12 @@ void main() {
 
     vec2 seed = (pos + v_tex_pos) * u_rand_seed;
 
-    // chance of restarting at a random position, so the field can't degenerate. Survival
-    // compounds per frame, so the per-frame rate becomes a hazard over this frame's length;
-    // max() only guards pow() against a rate above 1, which means "always drop" as before.
-    float drop_rate = u_drop_rate + speed_t * u_drop_rate_bump;
-    float drop = step(pow(max(1.0 - drop_rate, 0.0), frames), rand(seed));
+    // chance of restarting at a random position, so the field can't degenerate. Two
+    // independent Poisson hazards, one in time and one in distance travelled: the first
+    // keeps calm air turning over, the second evens out density as flow concentrates
+    // particles. A zero rate disables its hazard.
+    float survival = exp(-(u_dt * u_life_rate + length(offset_px) * u_travel_rate));
+    float drop = step(survival, rand(seed));
 
     vec2 random_pos = vec2(
         rand(seed + 1.3),
