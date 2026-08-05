@@ -35,16 +35,16 @@ export function createProgram(gl, vertexSource, fragmentSource) {
     return program;
 }
 
-// `data` may be a typed array, an image or bitmap, or null to allocate storage only.
-// Filtering is always NEAREST: shaders interpolate themselves, and it isn't guaranteed
-// for float textures anyway. Only S can wrap — a wrapping T would blend the poles.
-export function createTexture(gl, format, data, width, height, wrapS = gl.CLAMP_TO_EDGE) {
+// `data` may be a typed array, an image or bitmap, or null to allocate storage only. Filtering
+// defaults to NEAREST: the wind and state shaders interpolate themselves, and hardware filtering
+// isn't guaranteed for float textures anyway. Only S can wrap — a wrapping T would blend the poles.
+export function createTexture(gl, format, data, width, height, wrapS = gl.CLAMP_TO_EDGE, filter = gl.NEAREST) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
 
     gl.texStorage2D(gl.TEXTURE_2D, 1, format, width, height);
     if (data) {

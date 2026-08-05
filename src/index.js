@@ -1,7 +1,7 @@
 import * as util from './util.js';
 import {drawVert, drawFrag, quadVert, screenFrag, updateFrag} from './shaders.js';
 import {windStep} from './encode.js';
-import {validateView, viewSpan, viewMin} from './view.js';
+import {validateView, viewSpan, viewMin, rebaseTransform, trailTransform, viewsOverlap} from './view.js';
 
 const defaultRampColors = {
     0.0: '#3288bd',
@@ -33,6 +33,12 @@ export default class WindGL {
         this.lastFrame = 0; // timestamp of the previous draw, for the frame interval
 
         this.trailDuration = 12; // s — time for a trail to fade to invisible
+        // octaves of zoom that fade a trail out, the same way trailDuration does in time. Panning
+        // resamples the trails too, but repeated translation settles at a fixed slight blur;
+        // magnification instead re-interpolates its own interpolations, so a trail widens without
+        // bound and the field blooms. Only the scale change is charged for, and lightly: this has
+        // to keep trails through a zoom, not trade the bloom back for a clear.
+        this.trailZoom = 3;
         this.speed = 2.2; // CSS px/s of screen travel per m/s of wind, at the equator
         this.rampMaxSpeed = 32; // m/s — wind speed at the top of the color ramp
         // recycling: particles move to a random place at these two mean rates, which can
@@ -45,6 +51,9 @@ export default class WindGL {
         // the latest view, and the one the state and trails are encoded against
         this.view = null;
         this.prevView = null;
+        // raised by anything that invalidates the state; only draw() acts on it, so the state and
+        // the trails are never left encoded against different views
+        this.needsReseed = true;
 
         this.drawProgram = util.createProgram(gl, drawVert, drawFrag);
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
@@ -63,9 +72,12 @@ export default class WindGL {
         const gl = this.gl;
         gl.deleteTexture(this.backgroundTexture);
         gl.deleteTexture(this.screenTexture);
-        // the previous and the current frame, swapped each draw to fade out the trails
-        this.backgroundTexture = util.createTexture(gl, gl.RGBA8, null, gl.canvas.width, gl.canvas.height);
-        this.screenTexture = util.createTexture(gl, gl.RGBA8, null, gl.canvas.width, gl.canvas.height);
+        // the previous and the current frame, swapped each draw to fade out the trails. LINEAR
+        // because the fade pass resamples them on a view change, and with NEAREST the trails
+        // visibly crawl under a subpixel pan.
+        const [w, h] = [gl.canvas.width, gl.canvas.height];
+        this.backgroundTexture = util.createTexture(gl, gl.RGBA8, null, w, h, gl.CLAMP_TO_EDGE, gl.LINEAR);
+        this.screenTexture = util.createTexture(gl, gl.RGBA8, null, w, h, gl.CLAMP_TO_EDGE, gl.LINEAR);
         // the particle count follows the CSS size, so a device pixel ratio change doesn't
         // touch it — and an ordinary resize usually stays inside the same state texture
         this.initParticles();
@@ -143,17 +155,13 @@ export default class WindGL {
         if (res === this.particleRes) return;
         this.particleRes = res;
 
-        const particleState = new Float32Array(res * res * 4);
-        for (let i = 0; i < particleState.length; i += 4) {
-            // random initial positions; a zero step means no segment to draw yet
-            particleState[i] = Math.random();
-            particleState[i + 1] = Math.random();
-        }
         gl.deleteTexture(this.particleStateTexture0);
         gl.deleteTexture(this.particleStateTexture1);
-        // current and next frame; the next one is only rendered into, so it needs no data
-        this.particleStateTexture0 = util.createTexture(gl, gl.RGBA32F, particleState, res, res);
+        // both left empty: the update pass seeds them on the next draw, which is the same
+        // scatter a drop does, so there's no CPU-side copy of it to keep in step
+        this.particleStateTexture0 = util.createTexture(gl, gl.RGBA32F, null, res, res);
         this.particleStateTexture1 = util.createTexture(gl, gl.RGBA32F, null, res, res);
+        this.needsReseed = true;
     }
 
     // `image` is an equirectangular u/v grid encoded per src/encode.js, and `range` the ±m/s
@@ -202,10 +210,18 @@ export default class WindGL {
 
         util.bindTexture(gl, this.windTexture, 0);
 
+        // views sharing no ground have no continuity to preserve, and the rebase would be large
+        // enough to push positions where the Mercator inversion overflows
+        const reseed = this.needsReseed || !viewsOverlap(this.prevView, this.view);
+
         // update first: the step is what the segment draws, and once the view can move it's the
         // update pass that rebases the state into the current view the draw renders against
-        this.updateParticles(dt);
+        this.updateParticles(dt, reseed);
         this.drawScreen(dt);
+
+        // both passes have now run against it, so it's what the state and the trails mean
+        this.prevView = this.view;
+        this.needsReseed = false;
     }
 
     drawScreen(dt) {
@@ -215,16 +231,20 @@ export default class WindGL {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.screenTexture, 0);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-        // 1/255 is gone in 8 bits, so trailDuration is the time to fade to that
-        this.drawTexture(this.backgroundTexture, (1 / 255) ** (dt / this.trailDuration), Math.random());
+        // 1/255 is gone in 8 bits, so trailDuration is the time to fade to that. The same pass
+        // reprojects: trails are screen space, so without this they'd smear across a view change.
+        const trail = trailTransform(this.prevView, this.view);
+        // this frame's magnification, in octaves; zero for a pure pan, so panning fades as it always did
+        const octaves = Math.abs(Math.log2(trail.scale[1]));
+        const age = dt / this.trailDuration + octaves / this.trailZoom;
+        this.drawTexture(this.backgroundTexture, (1 / 255) ** age, Math.random(), trail);
         this.drawParticles();
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        // enable blending to support drawing on top of an existing background (e.g. a map)
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        // unblended: fading has already multiplied RGB by alpha, so blending here would apply it a
+        // second time and darken the trails. This covers the canvas, and its alpha is the canvas
+        // alpha, which the page then composites over whatever is underneath.
         this.drawTexture(this.screenTexture, 1.0);
-        gl.disable(gl.BLEND);
 
         // save the current screen as the background for the next frame
         const temp = this.backgroundTexture;
@@ -232,8 +252,9 @@ export default class WindGL {
         this.screenTexture = temp;
     }
 
-    // `ditherSeed` of 0 draws the texture as is; anything else dithers the fade
-    drawTexture(texture, opacity, ditherSeed = 0) {
+    // `ditherSeed` of 0 draws the texture as is; anything else dithers the fade. `trail` is where
+    // each pixel reads from, defaulting to identity for a texture already in the current view.
+    drawTexture(texture, opacity, ditherSeed = 0, trail = {scale: [1, 1], offset: [0, 0]}) {
         const gl = this.gl;
         const program = this.screenProgram;
         gl.useProgram(program);
@@ -242,6 +263,8 @@ export default class WindGL {
         gl.uniform1i(program.u_screen, 2);
         gl.uniform1f(program.u_opacity, opacity);
         gl.uniform1f(program.u_dither_seed, ditherSeed);
+        gl.uniform2f(program.u_trail_scale, ...trail.scale);
+        gl.uniform2f(program.u_trail_offset, ...trail.offset);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
@@ -264,7 +287,7 @@ export default class WindGL {
         gl.drawArrays(gl.LINES, 0, this._numParticles * 2);
     }
 
-    updateParticles(dt) {
+    updateParticles(dt, reseed) {
         const gl = this.gl;
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.particleStateTexture1, 0);
@@ -282,6 +305,16 @@ export default class WindGL {
         gl.uniform2f(program.u_wind_res, this.windRes[0], this.windRes[1]);
         gl.uniform2f(program.u_view_min, ...viewMin(this.view));
         gl.uniform2f(program.u_view_span, ...viewSpan(this.view));
+
+        // in doubles, and already normalized: the shader never sees a global coordinate
+        const {scale, offset} = rebaseTransform(this.prevView, this.view);
+        gl.uniform2f(program.u_rebase_scale, ...scale);
+        gl.uniform2f(program.u_rebase_offset, ...offset);
+        gl.uniform1f(program.u_reseed, reseed ? 1 : 0);
+        // the old view's area measured in current-view units: 1 or more when zooming in, where every
+        // survivor is already needed, and small when zooming out, where most of them are surplus
+        gl.uniform1f(program.u_keep, Math.min(1, scale[0] * scale[1]));
+
         gl.uniform1f(program.u_wind_step, this.windStep);
         gl.uniform1f(program.u_ramp_max_speed, this.rampMaxSpeed);
         // speeds are in CSS px so they mean the same thing at any device pixel ratio

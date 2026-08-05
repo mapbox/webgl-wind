@@ -17,10 +17,18 @@ void main() {
         i % u_particles_res,
         i / u_particles_res), 0);
 
+    vec2 packed = unpackHalf2x16(floatBitsToUint(state.b));
+    // exactly zero is the respawn sentinel: the particle has no history here, so collapse the
+    // segment off-screen. Stretching it instead would speckle a pan, which respawns in bulk.
+    if (packed == vec2(0)) {
+        gl_Position = vec4(2, 2, 2, 1);
+        return;
+    }
+
     // stretch to a pixel: shorter segments rasterize to nothing, dropping slow particles
-    vec2 offset = unpackHalf2x16(floatBitsToUint(state.b)) * u_resolution;
+    vec2 offset = packed * u_resolution;
     float len = length(offset);
-    if (len < 1.0) offset = len > 0.0 ? offset / len : vec2(1, 0);
+    if (len < 1.0) offset /= len;
 
     vec2 p = state.rg - offset / u_resolution * float(1 - (gl_VertexID & 1));
 
@@ -65,12 +73,24 @@ uniform sampler2D u_screen;
 uniform float u_opacity;
 uniform float u_dither_seed;
 
+// where this pixel's ground was in the texture: a gather, so it's the inverse of the particle
+// rebase. Identity when the texture is already in the current view, as the final composite is.
+uniform vec2 u_trail_scale;
+uniform vec2 u_trail_offset;
+
 in vec2 v_tex_pos;
 
 out vec4 fragColor;
 
 void main() {
-    vec4 faded = texture(u_screen, v_tex_pos) * u_opacity;
+    vec2 pos = v_tex_pos * u_trail_scale + u_trail_offset;
+    // explicitly transparent outside, because CLAMP_TO_EDGE would instead repeat the edge texel
+    // and stretch a bright streak of it across everything the view has just revealed
+    if (any(lessThan(pos, vec2(0))) || any(greaterThan(pos, vec2(1)))) {
+        fragColor = vec4(0);
+        return;
+    }
+    vec4 faded = texture(u_screen, pos) * u_opacity;
     // ±0.5/255 of R2 noise makes the rounding unbiased, so a fade of a fraction of a level isn't lost.
     // Zero seed means nothing to fade; sign() keeps black black, as clamping the negative half of the
     // noise would rectify it into a haze that never fades.
@@ -94,6 +114,14 @@ uniform float u_wind_step;
 uniform vec2 u_view_min;
 uniform vec2 u_view_span;
 
+// maps a position stored against the previous view into the current one; computed in JS doubles
+// and applied view-locally, since going through a global Mercator coordinate would round away
+// more than the whole visible span at high zoom
+uniform vec2 u_rebase_scale;
+uniform vec2 u_rebase_offset;
+uniform float u_keep; // fraction of the particles the rebase leaves in place; see below
+uniform float u_reseed; // scatter every particle instead of rebasing: first frame, or no shared ground
+
 uniform sampler2D u_particles;
 uniform float u_rand_seed;
 uniform float u_dt;
@@ -102,8 +130,6 @@ uniform vec2 u_canvas_css;
 uniform float u_ramp_max_speed;
 uniform float u_life_rate; // 1/s — hazard of recycling per second of age
 uniform float u_travel_rate; // 1/px — hazard of recycling per CSS px travelled
-
-in vec2 v_tex_pos;
 
 out vec4 fragColor;
 
@@ -131,10 +157,25 @@ vec2 lookup_wind(const vec2 uv) {
 }
 
 void main() {
+    // integer state addressing: exact at any state texture size, and it hands the hash below a
+    // coordinate that's unique per particle rather than one interpolated across the quad
+    ivec2 statePos = ivec2(gl_FragCoord.xy);
+    vec2 seed = vec2(statePos) + vec2(u_rand_seed, u_rand_seed * 1.6180339);
+
+    // an early return rather than folding into the drop below: seeding is the same operation, but a
+    // uniform branch is coherent and skips a wind lookup on the one frame whose state is meaningless
+    if (u_reseed > 0.0) {
+        fragColor = vec4(rand(seed), rand(seed + 1.3), 0.0, 0.0);
+        return;
+    }
+
+    // rebase from the view the state was written against; the step below then lands in current-view
+    // units, so what gets stored as the segment holds wind only and never any camera movement
+    vec2 pos = texelFetch(u_particles, statePos, 0).rg * u_rebase_scale + u_rebase_offset;
+
     // positions are stored relative to the view, so this is the only place a global coordinate
     // appears — and only to be looked up, never stored back: float32 is ample against a ~1° grid
     // but at high zoom the whole visible span is a few ulps of a world coordinate
-    vec2 pos = texture(u_particles, v_tex_pos).rg;
     vec2 world = u_view_min + pos * u_view_span;
 
     // inverting Mercator, but stopping at sinh: the wind row wants the latitude while the scale
@@ -156,8 +197,6 @@ void main() {
     vec2 offset = offset_px / u_canvas_css;
     pos += offset;
 
-    vec2 seed = (pos + v_tex_pos) * u_rand_seed;
-
     // chance of restarting at a random position, so the field can't degenerate. Two
     // independent Poisson hazards, one in time and one in distance travelled: the first
     // keeps calm air turning over, the second evens out density as flow concentrates
@@ -166,7 +205,16 @@ void main() {
     // a particle carried out of the view is gone for good, so it respawns too: the view is no
     // longer the whole world, and wrapping it would fold the far edge back into the picture
     float escaped = float(any(lessThan(pos, vec2(0))) || any(greaterThan(pos, vec2(1))));
-    float drop = max(escaped, step(survival, rand(seed)));
+
+    // Zooming out shrinks the whole field into a box of the new view, and nothing escapes, so the
+    // ordinary hazards would need several turnovers to spread it out again — meanwhile the old view
+    // sits there as a bright rectangle. Instead thin the survivors to the density the box now
+    // represents: u_keep is its area in current-view units, so this scatters exactly the surplus.
+    // Respawns are uniform over the whole view rather than only the revealed part, which leaves the
+    // box about twice the surrounding density for a moment instead of many times it.
+    float crowded = step(u_keep, rand(seed + 3.7));
+
+    float drop = max(max(escaped, crowded), step(survival, rand(seed)));
 
     vec2 random_pos = vec2(
         rand(seed + 1.3),
