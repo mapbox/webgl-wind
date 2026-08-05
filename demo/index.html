@@ -7,7 +7,8 @@
 <style>
 body { margin: 0; padding: 0; }
 #coastline { background: black; }
-#canvas, #coastline { display: block; width: 100vw; height: 100vh; position: absolute; }
+/* touch-action so a drag pans the view instead of scrolling or pinch-zooming the page */
+#canvas, #coastline { display: block; width: 100vw; height: 100vh; position: absolute; touch-action: none; }
 </style>
 <body>
 <canvas id="coastline"></canvas>

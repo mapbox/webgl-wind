@@ -1,6 +1,6 @@
 import * as util from './util.js';
 import {drawVert, drawFrag, quadVert, screenFrag, updateFrag} from './shaders.js';
-import {WIND_RANGE, windStep} from './encode.js';
+import {windStep} from './encode.js';
 import {validateView, viewSpan, viewMin} from './view.js';
 
 const defaultRampColors = {
@@ -15,13 +15,11 @@ const defaultRampColors = {
 };
 
 export default class WindGL {
-    // `windRange` is the ±m/s range the wind images were encoded against; constructor-only
-    // so a later change can't reinterpret an already loaded image. `maxParticles` is an
-    // allocation guard rather than a density control: canvas area is unbounded, so the
-    // count needs some ceiling, and going over it widens the spacing with a warning.
-    constructor(gl, {windRange = WIND_RANGE, maxParticles = 1e6} = {}) {
+    // `maxParticles` is an allocation guard rather than a density control: canvas area is
+    // unbounded, so the count needs some ceiling, and going over it widens the spacing
+    // with a warning.
+    constructor(gl, {maxParticles = 1e6} = {}) {
         this.gl = gl;
-        this.windStep = windStep(windRange);
         this.maxParticles = maxParticles;
 
         // needed to render into the RGBA32F particle state textures
@@ -158,11 +156,16 @@ export default class WindGL {
         this.particleStateTexture1 = util.createTexture(gl, gl.RGBA32F, null, res, res);
     }
 
-    // `image` is an equirectangular u/v grid encoded per src/encode.js. Decode it with
-    // `createImageBitmap(blob, {colorSpaceConversion: 'none', premultiplyAlpha: 'none'})`:
-    // browser defaults are entitled to rewrite the channels.
-    setWind(image) {
+    // `image` is an equirectangular u/v grid encoded per src/encode.js, and `range` the ±m/s
+    // it was encoded against — a property of that image, so it travels with it rather than
+    // being fixed for the instance; data/prepare.js writes one per frame into index.json.
+    // Decode the image with `createImageBitmap(blob, {colorSpaceConversion: 'none',
+    // premultiplyAlpha: 'none'})`: browser defaults are entitled to rewrite the channels.
+    setWind(image, range) {
         const gl = this.gl;
+        // no default, because guessing it would silently scale every speed in the animation
+        if (!(range > 0)) throw new Error(`setWind needs the image's encoding range, got ${range}`);
+        this.windStep = windStep(range);
         this.windRes = [image.width, image.height];
         gl.deleteTexture(this.windTexture);
         // wraps in S to interpolate across the date line

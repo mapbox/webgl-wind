@@ -27,13 +27,15 @@ npm start
 node data/prepare.js wind 9
 ```
 
-This writes one `png` per frame for use with `setWind`, taking 10 m wind
+This writes one `png` per frame for use with `setWind`, taking 100 m wind
 from the [NCEP GFS](https://www.ncei.noaa.gov/products/weather-climate-models/global-forecast)
-1° model. Frames are 6 hours apart, ending at the most recent one available; the second
+0.25° model. Frames are 6 hours apart, ending at the most recent one available; the second
 argument is how many to fetch (default 1).
 
-It also writes an `index.json` listing the frames, which is what the demo reads — point
-the script at `demo/wind` to refresh the demo with current weather.
+It also writes an `index.json` listing the frames as `{name, range}`, which is what the demo
+reads — point the script at `demo/wind` to refresh the demo with current weather. `range` is
+the ±m/s the frame is encoded against, measured per frame rather than fixed, and `setWind`
+needs it alongside the image.
 
 Data comes from [Unidata's THREDDS server](https://thredds.ucar.edu/) over OPeNDAP's
 ASCII output — plain text, so no GRIB tooling is needed. Its aggregation only reaches
