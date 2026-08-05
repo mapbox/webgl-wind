@@ -29,7 +29,8 @@ export function createProgram(gl, vertexSource, fragmentSource) {
     const numUniforms = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
     for (let i = 0; i < numUniforms; i++) {
         const {name} = gl.getActiveUniform(program, i);
-        program[name] = gl.getUniformLocation(program, name);
+        // an array reports itself as `u_foo[0]`, and its location covers the whole array
+        program[name.replace(/\[0\]$/, '')] = gl.getUniformLocation(program, name);
     }
 
     return program;

@@ -1,7 +1,7 @@
 import * as util from './util.js';
 import {drawVert, drawFrag, quadVert, screenFrag, updateFrag} from './shaders.js';
 import {windStep} from './encode.js';
-import {validateView, viewSpan, viewMin, rebaseTransform, trailTransform, viewsOverlap} from './view.js';
+import {validateView, viewSpan, viewMin, rebaseTransform, trailTransform, revealRects, viewsOverlap} from './view.js';
 
 const defaultRampColors = {
     0.0: '#3288bd',
@@ -33,12 +33,6 @@ export default class WindGL {
         this.lastFrame = 0; // timestamp of the previous draw, for the frame interval
 
         this.trailDuration = 12; // s — time for a trail to fade to invisible
-        // octaves of zoom that fade a trail out, the same way trailDuration does in time. Panning
-        // resamples the trails too, but repeated translation settles at a fixed slight blur;
-        // magnification instead re-interpolates its own interpolations, so a trail widens without
-        // bound and the field blooms. Only the scale change is charged for, and lightly: this has
-        // to keep trails through a zoom, not trade the bloom back for a clear.
-        this.trailZoom = 3;
         this.speed = 2.2; // CSS px/s of screen travel per m/s of wind, at the equator
         this.rampMaxSpeed = 32; // m/s — wind speed at the top of the color ramp
         // recycling: particles move to a random place at these two mean rates, which can
@@ -233,11 +227,8 @@ export default class WindGL {
 
         // 1/255 is gone in 8 bits, so trailDuration is the time to fade to that. The same pass
         // reprojects: trails are screen space, so without this they'd smear across a view change.
-        const trail = trailTransform(this.prevView, this.view);
-        // this frame's magnification, in octaves; zero for a pure pan, so panning fades as it always did
-        const octaves = Math.abs(Math.log2(trail.scale[1]));
-        const age = dt / this.trailDuration + octaves / this.trailZoom;
-        this.drawTexture(this.backgroundTexture, (1 / 255) ** age, Math.random(), trail);
+        this.drawTexture(this.backgroundTexture, (1 / 255) ** (dt / this.trailDuration), Math.random(),
+            trailTransform(this.prevView, this.view));
         this.drawParticles();
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -314,6 +305,12 @@ export default class WindGL {
         // the old view's area measured in current-view units: 1 or more when zooming in, where every
         // survivor is already needed, and small when zooming out, where most of them are surplus
         gl.uniform1f(program.u_keep, Math.min(1, scale[0] * scale[1]));
+
+        // where the displaced and the surplus respawn; all zero on a still view, which disables it
+        const {rects, cdf, total} = revealRects(this.prevView, this.view);
+        gl.uniform4fv(program.u_reveal, rects);
+        gl.uniform4f(program.u_reveal_cdf, ...cdf);
+        gl.uniform1f(program.u_reveal_total, total);
 
         gl.uniform1f(program.u_wind_step, this.windStep);
         gl.uniform1f(program.u_ramp_max_speed, this.rampMaxSpeed);

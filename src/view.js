@@ -43,6 +43,27 @@ export function trailTransform(prev, view) {
     return {scale, offset: [offset[0], 1 - scale[1] - offset[1]]};
 }
 
+// The part of `view` that `prev` didn't cover, as up to four rects in current-view units, with the
+// cumulative area fractions to pick between them. Particles the view change itself displaced belong
+// here rather than anywhere in the view: a pan drops the vanishing strip and needs the revealed one
+// filled at once, and a zoom out has to put its whole surplus outside the box it shrank into.
+export function revealRects(prev, view) {
+    const {scale, offset} = rebaseTransform(prev, view);
+    const [x0, y0] = [Math.min(Math.max(offset[0], 0), 1), Math.min(Math.max(offset[1], 0), 1)];
+    const [x1, y1] = [Math.min(Math.max(offset[0] + scale[0], x0), 1), Math.min(Math.max(offset[1] + scale[1], y0), 1)];
+
+    // the sides span the full height, so the top and bottom pieces are only as wide as the box:
+    // an L for a pan, a full frame for a zoom out, and nothing at all when the box covers the view
+    const rects = [[0, 0, x0, 1], [x1, 0, 1, 1], [x0, 0, x1, y0], [x0, y1, x1, 1]];
+    const areas = rects.map(([ax, ay, bx, by]) => (bx - ax) * (by - ay));
+    const total = areas.reduce((a, b) => a + b, 0);
+
+    let acc = 0;
+    // a degenerate rect keeps its slot but no width in the CDF, so it can never be picked
+    const cdf = areas.map(a => (acc += a) / (total || 1));
+    return {rects: new Float32Array(rects.flat()), cdf, total};
+}
+
 // Views sharing no ground have nothing to carry over, so the caller reseeds instead
 // of rebasing — which also avoids a jump big enough to overflow the Mercator inversion.
 export const viewsOverlap = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];

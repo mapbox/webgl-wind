@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {validateView, rebaseTransform, trailTransform, viewsOverlap, viewMin} from '../src/view.js';
+import {validateView, rebaseTransform, trailTransform, revealRects, viewsOverlap, viewMin} from '../src/view.js';
 
 // Transforms are checked by mapping corners, not by comparing coefficients: that's
 // what catches a flipped sign or a missed texture-Y inversion.
@@ -112,4 +112,43 @@ test('validation rejects the ways a rect can be wrong', () => {
     assert.throws(() => validateView([0, 0.1, 1, 1.1], 1000, 1000), /within \[0, 1\]/);
     assert.throws(() => validateView([0, 0, 1, 1], 1000, 500), /aspect/);
     assert.throws(() => validateView([0, 0, 1, 0.51], 1000, 500), /aspect/);
+});
+
+// The revealed rects have to tile exactly what the previous view didn't cover: any gap or overlap
+// is a density artifact along the seam, which is the very thing they exist to remove.
+
+const revealArea = (prev, view) => {
+    const {rects, total} = revealRects(prev, view);
+    let sum = 0;
+    for (let i = 0; i < 16; i += 4) {
+        sum += (rects[i + 2] - rects[i]) * (rects[i + 3] - rects[i + 1]);
+    }
+    // the rects are float32 for the uniform upload, the total stays in doubles
+    assert.ok(Math.abs(sum - total) < 1e-6, `areas agree with the total: ${sum} != ${total}`);
+    return total;
+};
+
+test('a still view reveals nothing', () => {
+    assert.equal(revealArea(world, world), 0);
+    // zooming in covers the whole view with old ground too
+    assert.equal(revealArea(world, [0.25, 0.25, 0.75, 0.75]), 0);
+});
+
+test('a pan reveals exactly the strip that came into view', () => {
+    close([revealArea(world, [0.25, 0, 1.25, 1])], [0.25], 'quarter-world pan');
+    close([revealArea(world, [-0.1, 0, 0.9, 1])], [0.1], 'the other way');
+    // both axes at once: an L, so the two strips must not double-count their corner
+    close([revealArea([0, 0, 1, 1], [0.25, 0.25, 1.25, 1.25])], [1 - 0.75 * 0.75], 'diagonal pan');
+});
+
+test('a zoom out reveals everything but the box it shrank into', () => {
+    // the old view lands as a centered quarter-sized box, so it keeps 1/16 of the area
+    close([revealArea([0.375, 0.375, 0.625, 0.625], world)], [1 - 1 / 16], 'four times out');
+});
+
+test('the reveal CDF spans the rects in proportion to their area', () => {
+    const {rects, cdf} = revealRects(world, [0.25, 0, 1.25, 1]);
+    // only the right-hand strip has area, so it must take the entire CDF
+    close([cdf[0], cdf[1], cdf[3]], [0, 1, 1], 'all weight on the second rect');
+    close([rects[4], rects[6]], [0.75, 1], 'and it is the strip that came into view');
 });
