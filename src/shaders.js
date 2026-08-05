@@ -18,9 +18,8 @@ void main() {
         i / u_particles_res), 0);
 
     vec2 packed = unpackHalf2x16(floatBitsToUint(state.b));
-    // exactly zero means no step to draw — the seeding frame, or air so still it encodes as calm.
-    // Collapse the segment off-screen rather than stretching it to the minimum below, which would
-    // otherwise light up every particle of a freshly seeded field with a dash.
+    // exactly zero means no step to draw — the seeding frame, or air encoding as dead calm. Collapsed
+    // off-screen rather than stretched to the minimum below, which would dash a whole freshly seeded field.
     if (packed == vec2(0)) {
         gl_Position = vec4(2, 2, 2, 1);
         return;
@@ -93,8 +92,8 @@ void main() {
     }
     vec4 faded = texture(u_screen, pos) * u_opacity;
     // ±0.5/255 of R2 noise makes the rounding unbiased, so a fade of a fraction of a level isn't lost.
-    // Zero seed means nothing to fade; sign() keeps black black, as clamping the negative half of the
-    // noise would rectify it into a haze that never fades.
+    // Zero seed means nothing to fade; sign() keeps black black, since clamping the noise's negative
+    // half would rectify it into a haze that never fades.
     float dither = u_dither_seed > 0.0 ? fract(dot(gl_FragCoord.xy, vec2(0.7548777, 0.5698403)) + u_dither_seed) - 0.5 : 0.0;
     fragColor = faded + dither / 255.0 * sign(faded);
 }`;
@@ -123,8 +122,8 @@ uniform vec2 u_rebase_offset;
 uniform float u_keep; // fraction of the particles the rebase leaves in place; see below
 uniform float u_reseed; // scatter every particle instead of rebasing: first frame, or no shared ground
 
-// the ground the view change just revealed, as rects with the cumulative area fractions to pick
-// between them, and their total area — zero when nothing was revealed, i.e. a still or zooming-in view
+// the ground the view change revealed, as rects with the cumulative area fractions to pick between
+// them; the total is zero when nothing was revealed, i.e. a still or zooming-in view
 uniform vec4 u_reveal[4];
 uniform vec4 u_reveal_cdf;
 uniform float u_reveal_total;
@@ -177,16 +176,16 @@ vec2 lookup_wind(const vec2 uv) {
     return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
 }
 
-// This frame's step at a view-relative position, in screen px, with the color ramp position
-// alongside it: the ramp wants the ground speed, which the px conversion has already scaled away.
-vec3 wind_step_px(const vec2 p) {
-    // positions are stored relative to the view, so this is the only place a global coordinate
-    // appears — and only to be looked up, never stored back: float32 is ample against a ~1° grid
-    // but at high zoom the whole visible span is a few ulps of a world coordinate
+// This frame's step at a view-relative position, in screen px, plus two by-products of the same lookup:
+// the ramp position, wanting the ground speed the px conversion scales away, and the largest step any
+// wind could produce at this latitude.
+vec4 wind_step_px(const vec2 p) {
+    // the only place a global coordinate appears, and only to be looked up, never stored back: float32
+    // is ample against a ~1° grid, but at high zoom the whole visible span is a few ulps of a world
     vec2 world = u_view_min + p * u_view_span;
 
-    // inverting Mercator, but stopping at sinh: the wind row wants the latitude while the scale
-    // factor wants cosh of the same argument, so one sinh serves both and only the row pays atan
+    // inverting Mercator, but stopping at sinh: the row wants the latitude and the scale factor wants
+    // cosh of the same argument, so one sinh serves both and only the row pays atan
     float sinh_lat = sinh(PI * (1.0 - 2.0 * world.y));
     float cos_lat = inversesqrt(1.0 + sinh_lat * sinh_lat);
 
@@ -195,107 +194,100 @@ vec3 wind_step_px(const vec2 p) {
     vec2 uv = vec2(fract(world.x), 0.5 - atan(sinh_lat) / PI);
     vec2 velocity = (lookup_wind(uv) * 255.0 - 128.0) * u_wind_step;
 
-    // Mercator is conformal, so its stretch is one isotropic scalar on the ground velocity rather
-    // than the equirectangular fix to x alone. Speed is in screen px, which is what keeps the field
-    // reading the same at every zoom — the latitude term stays physical, so shape survives too.
-    // The ramp clamps past its own end, so no clamp here.
-    return vec3(vec2(velocity.x, -velocity.y) / cos_lat * u_speed_dt,
-        length(velocity) / u_ramp_max_speed);
+    // Mercator is conformal, so its stretch is one isotropic scalar rather than the equirectangular fix
+    // to x alone: px keeps the field reading the same at every zoom, the latitude term keeps its shape.
+    // The ramp clamps past its own end. The bound is the fastest wind this image encodes — 127 codes
+    // either side of zero, see src/encode.js — through the same stretch, so it holds for either axis.
+    return vec4(vec2(velocity.x, -velocity.y) / cos_lat * u_speed_dt,
+        length(velocity) / u_ramp_max_speed,
+        127.0 * u_wind_step / cos_lat * u_speed_dt);
 }
 
-// A point on the border where wind is entering the view, drawn in proportion to how fast it enters
-// there — or (-1) if a few tries didn't find one, which is the answer on a border with no inflow at
-// all. Rejection is the whole trick: accepting against a uniform fraction of the fastest step the
-// ramp can show makes the acceptance rate the inflow flux itself, so no reduction pass is needed to
-// normalize it. Candidates are cheap because the wind lookup is the only real cost.
+// A border point where wind is entering, drawn in proportion to how fast, or (-1) on an all-outflow
+// border. Accepting against a uniform fraction of the fastest step possible there makes the acceptance
+// rate the inflow flux itself, so nothing has to reduce over the border to normalize it.
 vec2 inflow_point(const vec2 seed) {
-    float max_step = u_ramp_max_speed * u_speed_dt; // px a ramp-topping wind covers this frame
+    // the strongest candidate stands in when none is accepted, so the bound only decides *where* a
+    // particle enters, never how many do — otherwise a tighter bound would thin the inflow edge
+    vec2 best = vec2(-1.0);
+    float best_flux = 0.0; // outflow can never win it
+
     for (int k = 0; k < 4; k++) {
         vec2 s = seed + float(k) * 11.7;
         vec4 edge = boundary_point(s);
-        if (dot(wind_step_px(edge.xy).xy, edge.zw) > rand(s + 3.1) * max_step) return edge.xy;
+        vec4 wind = wind_step_px(edge.xy);
+        float flux = dot(wind.xy, edge.zw);
+        if (flux > rand(s + 3.1) * wind.w) return edge.xy;
+        if (flux > best_flux) {
+            best_flux = flux;
+            best = edge.xy;
+        }
     }
-    return vec2(-1.0);
+    return best;
 }
 
 void main() {
-    // integer state addressing: exact at any state texture size, and it hands the hash below a
-    // coordinate that's unique per particle rather than one interpolated across the quad
+    // integer addressing: exact at any state size, and unique per particle for the hash below
     ivec2 statePos = ivec2(gl_FragCoord.xy);
     vec2 seed = vec2(statePos) + vec2(u_rand_seed, u_rand_seed * 1.6180339);
 
-    // an early return rather than folding into the drop below: seeding is the same operation, but a
-    // uniform branch is coherent and skips a wind lookup on the one frame whose state is meaningless
+    // seeding is the same operation as the drop below, but a coherent branch, and it skips the wind
+    // lookup on the one frame whose state means nothing
     if (u_reseed > 0.0) {
         fragColor = vec4(rand(seed), rand(seed + 1.3), 0.0, 0.0);
         return;
     }
 
-    // rebase from the view the state was written against; the step below then lands in current-view
-    // units, so what gets stored as the segment holds wind only and never any camera movement
+    // rebased from the view the state was written against, so the step below lands in current-view
+    // units and the stored segment holds wind only, never camera movement
     vec2 pos = texelFetch(u_particles, statePos, 0).rg * u_rebase_scale + u_rebase_offset;
 
-    // the rebase alone put these outside: exactly the ground the view has just left behind, so there
-    // are as many of them as the revealed strip needs. Wind-driven escapes below are a different
-    // thing and belong anywhere, which is why the two are counted apart.
+    // outside by the rebase alone: exactly the ground the view left behind, so as many as the revealed
+    // strip needs. Counted apart from the wind-driven escapes below, which belong elsewhere.
     float displaced = float(outside(pos));
 
-    vec3 wind = wind_step_px(pos);
+    vec4 wind = wind_step_px(pos);
     float speed_t = wind.z;
     vec2 offset = wind.xy / u_canvas_css;
     pos += offset;
 
-    // chance of restarting at a random position, so the field can't degenerate. Two
-    // independent Poisson hazards, one in time and one in distance travelled: the first
-    // keeps calm air turning over, the second evens out density as flow concentrates
-    // particles. A zero rate disables its hazard.
+    // two independent Poisson hazards keeping the field from degenerating: one in time, so calm air
+    // still turns over, one in distance, so concentrating flow evens out. A zero rate disables its own.
     float survival = exp(-(u_dt * u_life_rate + length(wind.xy) * u_travel_rate));
-    // a particle carried out of the view is gone for good, so it respawns too: the view is no
-    // longer the whole world, and wrapping it would fold the far edge back into the picture
+
+    // gone for good, the view no longer being the whole world: wrapping would fold its far edge back in
     float escaped = float(outside(pos));
 
-    // Zooming out shrinks the whole field into a box of the new view, and nothing escapes, so the
-    // ordinary hazards would need several turnovers to spread it out again — meanwhile the old view
-    // sits there as a bright rectangle. Instead thin the survivors to the density the box now
-    // represents: u_keep is its area in current-view units, so this scatters exactly the surplus.
+    // A zoom out shrinks the field into a box of the new view, where nothing escapes, so the hazards
+    // above would leave the old view standing as a bright rectangle for several turnovers. Thin it to
+    // the density the box now represents instead: u_keep is its area, so this drops exactly the surplus.
     float crowded = step(u_keep, rand(seed + 3.7));
 
     float drop = max(max(escaped, crowded), step(survival, rand(seed)));
 
     vec2 random_pos = vec2(rand(seed + 1.3), rand(seed + 2.1));
 
-    // A displaced or surplus particle isn't just any respawn: the view change moved it, and the
-    // deficit it should cover is the ground that change revealed, not the view as a whole. Filling
-    // the revealed part elsewhere leaves a visible seam for a whole turnover — the old view's edge
-    // stays legible in the density. So those two respawn inside the revealed rects, picked by area,
-    // while the hazards keep scattering anywhere, which is where they're already in equilibrium.
+    // a displaced or surplus particle covers the ground the view change revealed, not the view as a
+    // whole: scattered anywhere, the old view's edge stays legible in the density for a whole turnover
     if (u_reveal_total > 0.0 && max(displaced, crowded) > 0.0) {
         float r = rand(seed + 5.1);
         int i = r < u_reveal_cdf.x ? 0 : r < u_reveal_cdf.y ? 1 : r < u_reveal_cdf.z ? 2 : 3;
         random_pos = mix(u_reveal[i].xy, u_reveal[i].zw, random_pos);
 
     } else if (escaped > displaced) {
-        // A particle the *wind* blew out of the view left through the border, so it comes back through
-        // the border: the view is an open domain, and putting it anywhere instead leaves the strip
-        // along every inflow edge depleted, since there advection carries particles inward and nothing
-        // upstream replaces them. Matching the two makes border flux balance — out through the outflow
-        // edges, in through the inflow ones, in proportion to how fast wind enters each.
-        //
-        // Strictly the wind-driven escapes, hence the comparison: a particle the rebase put outside is
-        // also outside, but it has no border crossing to balance. Zooming in displaces everything that
-        // magnified past the edges, which is a large share of the field and reveals nothing, so
-        // treating those as blown out would dump most of the field into a thin strip at once.
+        // what the wind blew out through the border comes back through it, balancing the open domain's
+        // flux: otherwise every inflow edge depletes, having nothing upstream to replace what advects
+        // inward. Only the wind-driven ones — a displaced particle crossed no border, and a zoom in
+        // displaces much of the field at once.
         vec2 inflow = inflow_point(seed + 8.3);
         if (inflow.x >= 0.0) random_pos = inflow;
     }
 
-    // The step has to be resampled where the particle landed, not carried over or zeroed: the stale one
-    // would streak from the old position to the new, and a zero one draws nothing at all, which costs a
-    // segment per respawn. A view change respawns in bulk, so that shortfall reads as dimming for as
-    // long as the gesture lasts. The extra wind lookup is only paid by the few percent that dropped.
+    // resampled where it landed: a carried-over step would streak from the old position to the new, and
+    // a zero one costs a segment, which a view change respawning in bulk turns into visible dimming
     if (drop > 0.0) {
         pos = random_pos;
-        vec3 respawn_wind = wind_step_px(pos);
+        vec4 respawn_wind = wind_step_px(pos);
         offset = respawn_wind.xy / u_canvas_css;
         speed_t = respawn_wind.z;
     }

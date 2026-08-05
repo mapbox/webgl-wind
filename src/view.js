@@ -44,9 +44,9 @@ export function trailTransform(prev, view) {
 }
 
 // The part of `view` that `prev` didn't cover, as up to four rects in current-view units, with the
-// cumulative area fractions to pick between them. Particles the view change itself displaced belong
-// here rather than anywhere in the view: a pan drops the vanishing strip and needs the revealed one
-// filled at once, and a zoom out has to put its whole surplus outside the box it shrank into.
+// cumulative area fractions to pick between them. Particles the view change displaced belong here
+// rather than anywhere: a pan needs the revealed strip filled at once, and a zoom out has to put its
+// whole surplus outside the box it shrank into.
 export function revealRects(prev, view) {
     const {scale, offset} = rebaseTransform(prev, view);
     const [x0, y0] = [Math.min(Math.max(offset[0], 0), 1), Math.min(Math.max(offset[1], 0), 1)];
