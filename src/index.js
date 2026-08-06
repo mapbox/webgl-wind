@@ -27,14 +27,12 @@ export default class WindGL {
             throw new Error('WebGL2 EXT_color_buffer_float is required');
         }
 
-        // on by default, and it would stack an implementation-defined dither on top of ours
-        gl.disable(gl.DITHER);
-
         this.lastFrame = 0; // timestamp of the previous draw, for the frame interval
 
         this.trailDuration = 12; // s — time for a trail to fade to invisible
         this.speed = 2.2; // CSS px/s of screen travel per m/s of wind, at the equator
         this.rampMaxSpeed = 32; // m/s — wind speed at the top of the color ramp
+        this.opacity = 1; // of the whole field against what's already in the target
         // recycling: particles move to a random place at these two mean rates, which can
         // each be Infinity to disable that half
         this.particleLife = 2.8; // s — mean lifetime of a becalmed particle
@@ -48,6 +46,7 @@ export default class WindGL {
         // raised by anything that invalidates the state; only draw() acts on it, so the state and
         // the trails are never left encoded against different views
         this.needsReseed = true;
+        this.destroyed = false;
 
         this.drawProgram = util.createProgram(gl, drawVert, drawFrag);
         this.screenProgram = util.createProgram(gl, quadVert, screenFrag);
@@ -64,12 +63,16 @@ export default class WindGL {
     // call after the canvas drawing buffer changes size
     resize() {
         const gl = this.gl;
+        if (this.destroyed) return;
         gl.deleteTexture(this.backgroundTexture);
         gl.deleteTexture(this.screenTexture);
         // the previous and the current frame, swapped each draw to fade out the trails. LINEAR
         // because the fade pass resamples them on a view change, and with NEAREST the trails
         // visibly crawl under a subpixel pan.
         const [w, h] = [gl.canvas.width, gl.canvas.height];
+        // draw() composites into whatever viewport it found on entry, and a host sets one per pass.
+        // When we own the canvas nobody does, so the whole drawing buffer is the standing answer.
+        gl.viewport(0, 0, w, h);
         this.backgroundTexture = util.createTexture(gl, gl.RGBA8, null, w, h, gl.CLAMP_TO_EDGE, gl.LINEAR);
         this.screenTexture = util.createTexture(gl, gl.RGBA8, null, w, h, gl.CLAMP_TO_EDGE, gl.LINEAR);
         // the particle count follows the CSS size, so a device pixel ratio change doesn't
@@ -88,10 +91,12 @@ export default class WindGL {
     // unwrapped, so an antimeridian pan stays continuous rather than jumping a world. Required before draw().
     setView(rect) {
         validateView(rect, ...this.cssSize);
-        this.view = rect;
+        // copied, because a caller reusing one array across frames would otherwise mutate prevView
+        // as well and turn a real camera change into an identity transform
+        this.view = [...rect];
         // nothing is rendered yet, so the first view is what the state already means;
         // afterwards prevView only advances at the end of draw()
-        this.prevView ??= rect;
+        this.prevView ??= this.view;
     }
 
     // the square root of screen area per particle, so it's linear in perceived gappiness —
@@ -106,6 +111,7 @@ export default class WindGL {
     }
 
     setColorRamp(colors) {
+        if (this.destroyed) return;
         // lookup texture for colorizing the particles according to their speed
         this.gl.deleteTexture(this.colorRampTexture);
         this.colorRampTexture = util.createTexture(this.gl, this.gl.RGBA8, getColorRamp(colors), 256, 1);
@@ -118,6 +124,7 @@ export default class WindGL {
 
     initParticles() {
         const gl = this.gl;
+        if (this.destroyed) return;
         const [width, height] = this.cssSize;
 
         const maxRes = gl.getParameter(gl.MAX_TEXTURE_SIZE);
@@ -162,9 +169,11 @@ export default class WindGL {
     // it was encoded against — a property of that image, so it travels with it rather than
     // being fixed for the instance; data/prepare.js writes one per frame into index.json.
     // Decode the image with `createImageBitmap(blob, {colorSpaceConversion: 'none',
-    // premultiplyAlpha: 'none'})`: browser defaults are entitled to rewrite the channels.
+    // premultiplyAlpha: 'none'})`: browser defaults are entitled to rewrite the channels. The
+    // upload copies it, so a bitmap can be `close()`d as soon as this returns.
     setWind(image, range) {
         const gl = this.gl;
+        if (this.destroyed) return;
         // no default, because guessing it would silently scale every speed in the animation
         if (!(range > 0)) throw new Error(`setWind needs the image's encoding range, got ${range}`);
         this.windStep = windStep(range);
@@ -174,9 +183,13 @@ export default class WindGL {
         this.windTexture = util.createTexture(gl, gl.RGBA8, image, image.width, image.height, gl.REPEAT);
     }
 
-    // releases every GL resource; the instance is unusable afterwards
+    // releases every GL resource; the instance is unusable afterwards. Every method that would
+    // allocate or draw checks the flag and does nothing, so a call left over from a queued event
+    // is inert rather than quietly allocating textures nothing will ever free.
     destroy() {
         const gl = this.gl;
+        if (this.destroyed) return;
+        this.destroyed = true;
         for (const program of [this.drawProgram, this.screenProgram, this.updateProgram]) {
             gl.deleteProgram(program);
         }
@@ -190,12 +203,18 @@ export default class WindGL {
     // `now` is a timestamp in ms, as passed to a requestAnimationFrame callback
     draw(now = performance.now()) {
         const gl = this.gl;
+        if (this.destroyed) return;
         // a hidden or not yet laid out canvas has no area to fill; resize() picks it up later
         if (!this._numParticles) return;
         if (!this.view) throw new Error('setView() must be called before draw()');
 
+        const hostState = util.saveState(gl);
         gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.STENCIL_TEST);
+        // DITHER is on by default and would stack an implementation-defined dither on top of ours
+        gl.disable(gl.DITHER);
+        // the off-screen passes are all overwrites; only the final composite blends
+        gl.disable(gl.BLEND);
 
         // clamped so a stall or a tab switch advances one plausible frame instead of
         // teleporting everything; the first frame has no interval to measure
@@ -211,14 +230,16 @@ export default class WindGL {
         // update first: the step is what the segment draws, and once the view can move it's the
         // update pass that rebases the state into the current view the draw renders against
         this.updateParticles(dt, reseed);
-        this.drawScreen(dt);
+        this.drawScreen(dt, hostState);
 
         // both passes have now run against it, so it's what the state and the trails mean
         this.prevView = this.view;
         this.needsReseed = false;
+
+        util.restoreState(gl, hostState);
     }
 
-    drawScreen(dt) {
+    drawScreen(dt, hostState) {
         const gl = this.gl;
         // draw into a texture so this frame can serve as the next frame's background
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
@@ -231,11 +252,20 @@ export default class WindGL {
             trailTransform(this.prevView, this.view));
         this.drawParticles();
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        // unblended: fading has already multiplied RGB by alpha, so blending here would apply it a
-        // second time and darken the trails. This covers the canvas, and its alpha is the canvas
-        // alpha, which the page then composites over whatever is underneath.
-        this.drawTexture(this.screenTexture, 1.0);
+        // back to whatever the caller had bound, which is the canvas when we own it and a host's
+        // own target when we don't
+        gl.bindFramebuffer(gl.FRAMEBUFFER, hostState.framebuffer);
+        gl.viewport(...hostState.viewport);
+
+        // fading has already multiplied RGB by alpha, so the trail texture is premultiplied and
+        // the source factor must be ONE — SRC_ALPHA would apply it a second time and darken the
+        // trails. Over an empty canvas this is identical to no blending at all.
+        gl.enable(gl.BLEND);
+        gl.blendEquation(gl.FUNC_ADD);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        // scaling a premultiplied colour scales its coverage with it, so this is a true fade of the
+        // whole field rather than a wash over it
+        this.drawTexture(this.screenTexture, this.opacity);
 
         // save the current screen as the background for the next frame
         const temp = this.backgroundTexture;

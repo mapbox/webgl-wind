@@ -162,6 +162,7 @@ async function updateWind(hours) {
     // the PNG holds numbers, not colours: no conversion may touch the channels
     const image = await createImageBitmap(blob, {colorSpaceConversion: 'none', premultiplyAlpha: 'none'});
     wind.setWind(image, range);
+    image.close(); // the texture is the only copy that has to stick around
 }
 
 fetch('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_coastline.geojson')
